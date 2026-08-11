@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import "@fontsource-variable/noto-sans-kr";
 import "./globals.css";
 
 const sans = Geist({variable:"--sans",subsets:["latin"]});

@@ -282,7 +282,11 @@ export default function Home() {
       <div className="endingSummary"><span className="endingCore"><Icon name="check" size={39}/></span><p className="kicker">LINE CORE RESTORED</p><h1>라인 코어<br/>복구 완료</h1><p>{name} 엔지니어가 하나의 <code>line_follow()</code> 함수 안에 모든 과정을 연결했습니다.</p><div className="endingModules"><span>변수 설정</span><span>함수 정의</span><span>P 제어</span><span>D 제어</span><span>좌우 출력</span></div><button className="gameStart small" onClick={()=>transition(()=>setScreen("title"),"타이틀 화면으로 돌아가는 중",550)}>타이틀로 돌아가기 <Icon name="arrow"/></button></div>
       <section className="finalCodePanel" aria-label="완성된 line_follow 전체 코드">
         <header><div><small>RESTORED SOURCE</small><h2>완성된 전체 코드</h2></div><button onClick={async()=>{try{await navigator.clipboard.writeText(FINAL_LINE_FOLLOW_CODE);setCodeCopied(true);window.setTimeout(()=>setCodeCopied(false),1600)}catch{return}}}><Icon name={codeCopied?"check":"code"} size={16}/>{codeCopied?"복사 완료":"전체 코드 복사"}</button></header>
-        <pre><code>{FINAL_LINE_FOLLOW_CODE}</code></pre>
+        <pre><code className="finalCodeLines">{FINAL_LINE_FOLLOW_CODE.split("\n").map((line,index)=>{
+          const trimmed=line.trimStart();
+          const tone=trimmed.startsWith("#")?"isComment":/^(def|while)\b/.test(trimmed)?"isKeyword":"";
+          return <span className={`finalCodeLine ${tone}`} key={`${index}-${line}`}><i aria-hidden="true">{String(index+1).padStart(2,"0")}</i><span className="finalCodeText">{line||" "}</span></span>;
+        })}</code></pre>
         <p><Icon name="brain" size={16}/> 별도 보조 함수 없이, 센서 확인부터 좌우 출력까지 하나의 <code>line_follow()</code> 함수에 담았습니다.</p>
       </section>
     </section>
