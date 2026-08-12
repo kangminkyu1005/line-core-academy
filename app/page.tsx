@@ -432,12 +432,12 @@ function useGameAudio(enabled:boolean){
     if(contextRef.current.state==="suspended")void contextRef.current.resume();
     return contextRef.current;
   };
-  const tone=(context:AudioContext,frequency:number,start:number,duration:number,volume:number,type:OscillatorType="sine")=>{
+  const tone=(context:AudioContext,frequency:number,start:number,duration:number,volume:number,type:OscillatorType="sine",output:AudioNode=context.destination)=>{
     const oscillator=context.createOscillator();
     const gain=context.createGain();
     oscillator.type=type;oscillator.frequency.setValueAtTime(frequency,start);
     gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(volume,start+.018);gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
-    oscillator.connect(gain);gain.connect(context.destination);oscillator.start(start);oscillator.stop(start+duration+.03);
+    oscillator.connect(gain);gain.connect(output);oscillator.start(start);oscillator.stop(start+duration+.03);
   };
   const play=(cue:SoundCue)=>{
     if(!enabled)return;
@@ -453,17 +453,34 @@ function useGameAudio(enabled:boolean){
     const context=contextRef.current;
     if(!ready||!context)return;
     if(!enabled){void context.suspend();return;}
+    let cancelled=false;
+    const bgmBus=context.createGain();
+    const busStart=context.currentTime;
+    bgmBus.gain.setValueAtTime(.0001,busStart);
+    bgmBus.gain.linearRampToValueAtTime(1,busStart+.32);
+    bgmBus.connect(context.destination);
     void context.resume();
     const ambient=()=>{
+      if(cancelled)return;
       const start=context.currentTime+.04;
-      [174.61,196,220,246.94,220,196,174.61,196].forEach((note,index)=>{
-        tone(context,note,start+index*1.02,1.18,.012,"sine");
-        tone(context,note/2,start+index*1.02,1.22,.0035,"triangle");
+      [261.63,293.66,329.63,392,329.63,293.66,246.94,293.66].forEach((note,index)=>{
+        const noteStart=start+index*1.02;
+        tone(context,note,noteStart,1.26,.032,"sine",bgmBus);
+        tone(context,note/2,noteStart,1.3,.011,"triangle",bgmBus);
+        if(index%2===0)tone(context,note*2,noteStart+.12,.82,.006,"sine",bgmBus);
       });
     };
     ambient();
     const timer=window.setInterval(ambient,8160);
-    return ()=>window.clearInterval(timer);
+    return ()=>{
+      cancelled=true;
+      window.clearInterval(timer);
+      const stopAt=context.currentTime;
+      bgmBus.gain.cancelScheduledValues(stopAt);
+      bgmBus.gain.setValueAtTime(Math.max(.0001,bgmBus.gain.value),stopAt);
+      bgmBus.gain.linearRampToValueAtTime(.0001,stopAt+.12);
+      window.setTimeout(()=>bgmBus.disconnect(),150);
+    };
   },[enabled,ready]);
   useEffect(()=>()=>{void contextRef.current?.close()},[]);
   return {activate,play};
