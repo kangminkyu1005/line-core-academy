@@ -4,6 +4,15 @@ import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "reac
 
 type IconName = "arrow" | "book" | "brain" | "check" | "code" | "light" | "lock" | "map" | "mute" | "play" | "sound" | "target" | "terminal" | "user" | "x";
 
+type LearningCheck = {
+  badge: string;
+  question: string;
+  options: string[];
+  answer: number;
+  feedback: string;
+  codeClue: string;
+};
+
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
     arrow: <><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></>,
@@ -27,69 +36,98 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
 
 type Mission = {
   chapter: string; title: string; short: string; story: string; speech: string;
-  connection: string; activityKind: "route" | "memory" | "command" | "calibration" | "wave" | "motors";
+  connection: string; conceptBrief: string; activityKind: "route" | "memory" | "command" | "calibration" | "wave" | "motors";
   goal: string; reason: string; success: string[]; question: string;
   options: string[]; answer: number; hint: string; codeTitle: string;
   whyQuestion: string; whyOptions: string[]; whyAnswer: number; whyFeedback: string;
+  conceptChecks: LearningCheck[];
   hintLevels: [string, string, string];
-  codeHint: string; codeGuide: Array<[string, string]>; starter: string; solution: string; recovered: string;
+  codeHint: string; codeGuide: Array<[string, string]>; guidePatterns: string[]; starter: string; solution: string; recovered: string;
   tests: Array<[string, string]>;
 };
+
+function learningChecksFor(mission:Mission):LearningCheck[]{
+  return [
+    {badge:"CORE CONCEPT",question:mission.question,options:mission.options,answer:mission.answer,feedback:mission.hint,codeClue:mission.codeHint},
+    ...mission.conceptChecks,
+    {badge:"WHY & RESULT",question:mission.whyQuestion,options:mission.whyOptions,answer:mission.whyAnswer,feedback:mission.whyFeedback,codeClue:mission.reason},
+  ];
+}
 
 const missions: Mission[] = [
   {
     chapter: "프롤로그", title: "사라진 라인 코어", short: "라인팔로잉의 작동 순서를 이해합니다.",
-    story: "미래 도시의 안내 로봇 루미에게 단 하나뿐인 line_follow 명령이 사라졌습니다. 먼저 이 명령이 어떤 일을 해야 하는지 찾아야 합니다.",
-    speech: "검은 선은 보이는데 다음에 무엇을 해야 할지 모르겠어요. 라인을 따라간다는 건 어떤 과정인가요?",
-    connection: "라인 코어 복구 작전을 시작할게요. 먼저 로봇이 반복해서 판단하는 순서를 찾아봅시다.", activityKind: "route",
-    goal: "라인팔로잉의 네 가지 과정을 올바른 순서로 정리합니다.", reason: "앞으로 작성할 각 코드가 전체 함수에서 어떤 역할을 하는지 이해하기 위해 필요합니다.",
-    success: ["처리 순서 선택", "네 단계 주석 작성", "검사 통과"],
-    question: "라인팔로잉의 올바른 처리 순서는 무엇일까요?",
-    options: ["센서 확인 → 오차 계산 → 방향 보정 → 반복", "방향 보정 → 센서 확인 → 정지 → 반복", "속도 증가 → 함수 종료 → 센서 확인", "오차 계산 → 전원 종료 → 반복"], answer: 0,
+    story: "검정 바닥은 반사광이 낮고 흰 바닥은 높습니다. 루미는 검정 자체가 아니라 두 반사광의 중간값인 경계선을 기준으로 좌우를 판단해야 합니다.",
+    speech: "검정색만 쫓으면 선 한가운데로 들어가 버려요. 검정과 흰색이 만나는 경계를 따라가야 한다는 뜻이군요!",
+    connection: "라인 코어 복구를 시작할게요. 먼저 무엇을 따라가는지와 판단 기준을 세운 뒤, 반복되는 처리 순서를 연결해 봅시다.",
+    conceptBrief: "검정의 반사광과 흰색의 반사광을 측정한 뒤 두 값의 평균을 기준값으로 사용해요. 센서값이 기준보다 어느 쪽에 있는지 계속 비교하면 경계선을 따라갈 수 있습니다.", activityKind: "route",
+    goal: "검정·흰색 경계선과 기준값 공식을 이해하고 처리 순서를 정리합니다.", reason: "라인팔로잉이 검정색 자체가 아니라 경계선을 기준으로 오차를 반복 보정하는 과정임을 이해하기 위해 필요합니다.",
+    success: ["경계선 개념 확인", "기준값 공식 이해", "처리 순서 기록"],
+    question: "라인팔로잉 로봇이 실제로 따라가야 하는 곳은 어디일까요?",
+    options: ["검정과 흰색이 만나는 경계선", "검정 영역의 한가운데", "흰색 영역의 한가운데", "센서가 가장 밝게 보이는 곳"], answer: 0,
     whyQuestion: "로봇이 방향을 한 번만 보정하고 멈추면 왜 라인을 계속 따라갈 수 없을까요?",
     whyOptions: ["움직이는 동안 센서값과 오차가 계속 달라지기 때문에", "모터는 한 번만 움직일 수 있기 때문에", "파이썬 변수는 한 번만 사용할 수 있기 때문에", "센서가 반복문 안에서는 작동하지 않기 때문에"], whyAnswer: 0,
     whyFeedback: "로봇의 위치는 매 순간 달라져요. 그래서 센서 확인부터 방향 보정까지를 빠르게 반복해야 합니다.",
-    hint: "먼저 현재 상태를 확인하고, 차이를 계산한 뒤 방향을 수정해야 합니다.",
+    conceptChecks: [
+      {badge:"REFERENCE VALUE",question:"검정 반사광이 20, 흰색 반사광이 80이라면 경계의 기준값은 얼마일까요?",options:["50", "20", "80", "100"],answer:0,feedback:"기준값은 (검정 반사광 + 흰색 반사광) ÷ 2이므로 (20 + 80) ÷ 2 = 50입니다.",codeClue:"target은 검정값과 흰색값을 더한 뒤 2로 나누는 식으로 만들 수 있어요."},
+      {badge:"CONTROL LOOP",question:"경계선을 계속 따라가기 위한 올바른 처리 순서는 무엇일까요?",options:["센서 확인 → 오차 계산 → 방향 보정 → 반복", "방향 보정 → 센서 확인 → 정지 → 반복", "속도 증가 → 함수 종료 → 센서 확인", "오차 계산 → 전원 종료 → 반복"],answer:0,feedback:"현재 반사광을 읽고 기준값과의 오차를 계산한 다음 모터를 보정하는 과정을 반복합니다.",codeClue:"처리 순서를 네 줄의 파이썬 주석으로 먼저 설계해 보세요."},
+    ],
+    hint: "검정과 흰색이 만나는 지점에서는 센서값이 두 반사광의 중간에 가까워집니다.",
     codeTitle: "처리 과정을 파이썬 주석으로 기록하세요.", codeHint: "각 단계의 역할을 떠올려 네 줄의 주석을 완성해 보세요.",
-    hintLevels: ["현재 상태를 먼저 확인한 뒤 차이를 계산해요.", "센서 → 오차 → 보정 → 반복의 흐름을 주석으로 표현해 보세요.", "# 센서 확인 → # 오차 계산 → # 방향 보정 → # 반복"],
+    hintLevels: ["현재 상태를 먼저 확인한 뒤 기준과의 차이를 계산해요.", "차이를 계산한 다음 좌우 모터를 다르게 보정해요.", "마지막 단계는 멈춤이 아니라 같은 판단을 다시 수행하는 것입니다."],
     codeGuide: [["# 센서 확인", "현재 센서값을 먼저 읽어요."], ["# 오차 계산", "기준값과 센서값의 차이를 구해요."], ["# 방향 보정", "오차에 맞게 방향을 바꿔요."], ["# 반복", "이 과정을 계속 되풀이해요."]],
-    starter: "# 1. \n# 2. \n# 3. \n# 4. ", solution: "# 센서 확인\n# 오차 계산\n# 방향 보정\n# 반복",
+    guidePatterns: ["# 첫 번째 과정", "# 두 번째 과정", "# 세 번째 과정", "# 다시 수행할 과정"],
+    starter: "# 현재 반사광을 읽는 과정\n\n# 기준값과 현재값의 차이를 구하는 과정\n\n# 좌우 모터의 방향을 바꾸는 과정\n\n# 위 과정을 계속 수행하는 과정\n", solution: "# 센서 확인\n# 오차 계산\n# 방향 보정\n# 반복",
     recovered: "라인팔로잉 처리 순서", tests: [["첫 과정", "센서 확인"], ["중간 과정", "오차 계산 · 방향 보정"], ["마지막 과정", "반복"]],
   },
   {
     chapter: "1장 · 기억 모듈", title: "필요한 값을 기억하라", short: "속도, 기준값, Kp, Kd를 변수에 저장합니다.",
-    story: "루미는 센서값을 읽을 수 있지만 기준값과 제어 설정을 계속 잊어버립니다. 이름을 붙여 값을 기억시켜 주세요.",
-    speech: "기준값과 속도를 매번 새로 말하지 않아도 기억할 수 있게 해 주세요.",
-    connection: "방금 정리한 첫 단계는 센서 확인이었죠. 비교할 기준과 속도를 먼저 이름 붙여 기억해 둘게요.", activityKind: "memory",
-    goal: "라인팔로잉에 필요한 네 가지 변수를 직접 선언합니다.", reason: "함수에서 같은 값을 정확한 이름으로 다시 사용하기 위해 필요합니다.",
-    success: ["변수 역할 구분", "네 변수 작성", "값 검사 통과"],
+    story: "루미는 측정한 반사광과 제어 설정을 계속 잊어버립니다. 값마다 역할이 보이는 이름을 붙이면 상황이 바뀌어도 한 곳에서 다시 조절할 수 있습니다.",
+    speech: "기본 속도는 앞으로 가는 힘, target은 경계의 기준, Kp는 현재 오차 반응, Kd는 흔들림 변화 반응이군요.",
+    connection: "프롤로그에서 경계의 기준값을 구했죠. 이제 검정·흰색 측정값과 제어 설정에 이름을 붙여 다음 모든 단계에서 다시 사용해요.",
+    conceptBrief: "base_speed는 직진의 기본 힘, target은 검정·흰색 반사광의 평균, kp는 현재 오차에 반응하는 정도, kd는 오차 변화에 반응하는 정도입니다.", activityKind: "memory",
+    goal: "각 변수의 역할을 설명하고 상황에 맞는 값과 기준값 계산식을 선언합니다.", reason: "숫자의 역할을 이름으로 드러내고 센서·바닥·로봇이 달라질 때 필요한 값만 쉽게 조정하기 위해 필요합니다.",
+    success: ["네 변수 역할 설명", "기준값 공식 작성", "선택한 값 검증"],
     question: "기준 센서값을 저장하기에 가장 알맞은 변수 이름은 무엇일까요?", options: ["target", "while", "def", "left_motor"], answer: 0,
     whyQuestion: "코드 곳곳에 0.8과 0.3을 직접 쓰지 않고 kp와 kd 변수로 만드는 가장 큰 이유는 무엇일까요?",
     whyOptions: ["역할을 알아보기 쉽고 한 곳에서 값을 조정할 수 있어서", "숫자는 파이썬에서 사용할 수 없어서", "변수를 쓰면 센서가 더 정확해져서", "모터가 변수 이름을 직접 읽기 때문에"], whyAnswer: 0,
     whyFeedback: "의미 있는 이름을 붙이면 숫자의 역할이 보이고, 나중에 튜닝할 때 한 곳만 바꾸면 됩니다.",
+    conceptChecks: [
+      {badge:"BASE SPEED",question:"base_speed가 의미하는 값은 무엇일까요?",options:["보정이 없을 때 두 모터가 앞으로 가는 기본 속도", "검정색 반사광", "이전 오차", "센서가 읽는 현재값"],answer:0,feedback:"base_speed는 좌우 모터 출력의 출발점입니다. 이후 보정값을 더하거나 빼 방향을 바꿉니다.",codeClue:"base_speed에는 수업 로봇에 안전한 1~100 사이 속도를 직접 선택해 저장해요."},
+      {badge:"P GAIN",question:"kp를 크게 하면 가장 먼저 달라지는 것은 무엇일까요?",options:["현재 오차에 대한 보정 반응이 커진다", "기준값이 자동으로 바뀐다", "반복문이 느려진다", "센서가 흰색만 읽는다"],answer:0,feedback:"Kp는 현재 오차에 얼마나 민감하게 반응할지 정합니다. 너무 크면 빠르지만 지나치며 흔들릴 수 있어요.",codeClue:"kp는 0보다 큰 수로 시작하고 주행 결과를 보며 조절해요."},
+      {badge:"D GAIN",question:"kd의 주된 역할은 무엇일까요?",options:["오차가 빠르게 변할 때 추가로 반응해 흔들림을 줄인다", "로봇의 기본 속도를 저장한다", "검정과 흰색의 평균을 구한다", "함수 이름을 만든다"],answer:0,feedback:"Kd는 현재 오차의 크기보다 오차가 변하는 속도에 반응합니다.",codeClue:"kd는 0 이상으로 선택할 수 있고, 0이면 P 제어만 사용하는 상태가 됩니다."},
+    ],
     hint: "변수 이름은 값의 역할을 드러내야 합니다. 따라가려는 목표값을 뜻하는 이름을 찾아보세요.",
-    codeTitle: "루미의 기억값을 설정하세요.", codeHint: "이번 훈련 코어는 아래의 고정된 이름과 값을 사용해요. 이후 단계에서도 그대로 다시 사용합니다.",
-    hintLevels: ["변수는 이름 = 값 형태로 선언해요.", "base_speed와 target은 정수, kp와 kd는 소수 값이에요.", "base_speed = 60, target = 50, kp = 0.8, kd = 0.3"],
-    codeGuide: [["base_speed = 60", "직진할 때의 기준 속도"], ["target = 50", "선을 판단하는 센서 기준값"], ["kp = 0.8", "현재 오차에 반응하는 힘"], ["kd = 0.3", "급격한 흔들림을 줄이는 힘"]],
-    starter: "base_speed = \ntarget = \nkp = \nkd = ", solution: "base_speed = 60\ntarget = 50\nkp = 0.8\nkd = 0.3",
-    recovered: "속도와 제어 변수", tests: [["기본 속도", "60"], ["기준값", "50"], ["제어값", "Kp 0.8 · Kd 0.3"]],
+    codeTitle: "측정값과 제어 변수를 직접 선언하세요.", codeHint: "퀴즈에서 익힌 역할을 주석으로 확인하며 값을 선택하세요. target은 숫자를 외우지 말고 두 반사광의 평균식으로 작성합니다.",
+    hintLevels: ["변수는 이름 = 값 형태로 선언하며 오른쪽에는 숫자나 계산식이 올 수 있어요.", "검정 반사광은 흰색보다 작아야 하고 target은 두 값 사이에 있어야 해요.", "target에는 black_value와 white_value를 더한 뒤 2로 나누는 식이 필요해요."],
+    codeGuide: [["black_value = 20", "검정 바닥에서 측정한 반사광"], ["white_value = 80", "흰 바닥에서 측정한 반사광"], ["base_speed = 60", "직진할 때의 기본 속도"], ["target = (black_value + white_value) / 2", "경계를 판단하는 센서 기준값"], ["kp = 0.8", "현재 오차에 반응하는 힘"], ["kd = 0.3", "급격한 흔들림을 줄이는 힘"]],
+    guidePatterns: ["black_value = 측정값", "white_value = 측정값", "base_speed = 안전한 속도", "target = (검정값 + 흰색값) / 2", "kp = P 조절값", "kd = D 조절값"],
+    starter: "# 검정 바닥에서 측정한 반사광을 저장해요 (0~100)\nblack_value = \n\n# 흰 바닥에서 측정한 반사광을 저장해요 (검정보다 큰 값)\nwhite_value = \n\n# 보정이 없을 때의 기본 속도를 정해요 (1~100)\nbase_speed = \n\n# 검정과 흰색의 경계값을 평균식으로 계산해요\ntarget = \n\n# 현재 오차와 오차 변화에 반응할 정도를 정해요\nkp = \nkd = ", solution: "black_value = 20\nwhite_value = 80\nbase_speed = 60\ntarget = (black_value + white_value) / 2\nkp = 0.8\nkd = 0.3",
+    recovered: "속도와 제어 변수", tests: [["반사광 측정", "검정 < 흰색"], ["기준값", "두 반사광의 평균"], ["기본 속도", "1~100"], ["제어 계수", "Kp > 0 · Kd ≥ 0"]],
   },
   {
     chapter: "2장 · 명령 모듈", title: "하나의 명령으로 묶어라", short: "line_follow 함수와 반복 구조를 정의합니다.",
     story: "값은 준비됐지만 루미에게는 실행할 명령이 없습니다. 모든 판단을 담을 하나의 함수 틀을 복구해야 합니다.",
     speech: "여러 명령이 아니라 line_follow라는 하나의 명령으로 움직이고 싶어요.",
-    connection: "1장에서 만든 base_speed, target, kp, kd 네 값을 이번에는 line_follow 명령에 전달해 볼게요.", activityKind: "command",
+    connection: "1장에서 만든 base_speed, target, kp, kd 네 값을 이번에는 line_follow 명령에 전달해 볼게요.",
+    conceptBrief: "def는 함수를 시작하고, 괄호 안 매개변수는 함수가 사용할 값을 받습니다. 들여쓰기 된 명령만 함수에 포함되며 while True는 센서 읽기와 보정을 계속 반복합니다.", activityKind: "command",
     goal: "매개변수와 반복문을 포함한 line_follow 함수의 틀을 만듭니다.", reason: "라인을 따라가는 모든 과정을 하나의 재사용 가능한 명령으로 묶기 위해 필요합니다.",
     success: ["함수 구조 선택", "들여쓰기 작성", "센서 읽기 확인"],
     question: "함수를 정의할 때 사용하는 파이썬 키워드는 무엇일까요?", options: ["def", "return", "print", "import"], answer: 0,
     whyQuestion: "센서 확인과 보정을 line_follow라는 호출 가능한 함수로 묶으면 어떤 점이 좋을까요?",
     whyOptions: ["필요할 때 같은 동작을 한 번의 명령으로 실행하고 다시 사용할 수 있어서", "함수 안에서는 들여쓰기가 필요 없어서", "모든 프로그램은 함수가 하나만 있어야 해서", "함수로 만들면 반복문이 자동으로 사라져서"], whyAnswer: 0,
     whyFeedback: "함수는 여러 동작을 의미 있는 하나의 명령으로 묶습니다. 필요하면 내부를 보조 함수로 나누는 것도 가능합니다.",
+    conceptChecks: [
+      {badge:"INDENTATION",question:"파이썬에서 line_follow 함수 안에 포함되는 코드를 나타내는 방법은 무엇일까요?",options:["함수 선언보다 안쪽으로 들여쓴다", "모든 줄을 대문자로 쓴다", "줄 끝에 세미콜론을 쓴다", "코드를 따옴표로 감싼다"],answer:0,feedback:"파이썬은 중괄호 대신 들여쓰기로 함수와 반복문의 범위를 구분합니다.",codeClue:"함수 안은 4칸, while 안은 다시 4칸 더 들여써요."},
+      {badge:"LIVE SENSOR",question:"sensor_value에 반사광을 한 번만 저장하지 않고 반복해서 갱신해야 하는 이유는 무엇일까요?",options:["로봇이 움직일 때 바닥의 반사광이 계속 달라지기 때문에", "변수는 한 번 저장하면 삭제되기 때문에", "센서는 함수 밖에서만 작동하기 때문에", "모터 속도를 항상 0으로 만들기 위해"],answer:0,feedback:"로봇이 이동하면 센서가 보는 바닥도 달라집니다. 반복할 때마다 최신 반사광을 읽어야 현재 위치를 판단할 수 있어요.",codeClue:"while True 안에서 sensor_value에 color_sensor.reflection() 결과를 저장해요."},
+      {badge:"LOOP",question:"라인을 따라가는 동안 판단 과정을 계속 반복하는 파이썬 구조는 무엇일까요?",options:["while True:", "if False:", "return", "print()"],answer:0,feedback:"while True는 조건이 참인 동안 내부 코드를 반복합니다. 실제 로봇에서는 정지 조건과 안전장치를 함께 사용합니다.",codeClue:"while True: 다음 줄부터 센서 읽기 코드를 한 단계 더 들여써요."},
+    ],
     hint: "새로운 함수의 시작을 알리는 두 글자 키워드를 찾아보세요.",
     codeTitle: "line_follow 함수의 틀을 완성하세요.", codeHint: "아래 이름은 다음 미션이 연결되는 약속입니다. 대소문자와 밑줄까지 설계도와 같게 입력해 주세요.",
-    hintLevels: ["함수는 def로 시작하고 이름 뒤 괄호 안에 전달받을 값을 적어요.", "while True: 아래에서 sensor_value에 센서 읽기 결과를 저장해요.", "def line_follow(base_speed, target, kp, kd): … sensor_value = color_sensor.reflection()"],
+    hintLevels: ["함수는 def로 시작하고 이름 뒤 괄호 안에 전달받을 값을 적어요.", "함수 안의 코드는 4칸, while 안의 코드는 8칸 들여써요.", "센서 읽기 명령의 반환값을 sensor_value라는 변수에 저장해야 해요."],
     codeGuide: [["def line_follow(base_speed, target, kp, kd):", "네 값을 전달받는 함수의 시작"], ["previous_error = 0", "아직 이전 오차가 없으므로 0에서 시작"], ["while True:", "센서 확인과 보정을 계속 반복"], ["color_sensor.reflection()", "센서의 반사광 값을 읽는 명령"]],
-    starter: "def line_follow(base_speed, target, kp, kd):\n    previous_error = 0\n\n    while True:\n        sensor_value = ",
+    guidePatterns: ["def 함수이름(전달값):", "previous_error = 시작값", "while 반복조건:", "sensor_value = 센서 읽기"],
+    starter: "# 네 설정값을 전달받는 line_follow 함수를 정의해요\n\n# 함수 안에서 이전 오차를 0으로 준비해요\n\n# 센서 확인과 보정을 계속 반복해요\n\n# 반복문 안에서 현재 반사광을 sensor_value에 저장해요\n",
     solution: "def line_follow(base_speed, target, kp, kd):\n    previous_error = 0\n\n    while True:\n        sensor_value = color_sensor.reflection()",
     recovered: "함수와 반복 구조", tests: [["함수 이름", "line_follow"], ["이전 오차", "0"], ["센서 읽기", "reflection()"]],
   },
@@ -97,54 +135,75 @@ const missions: Mission[] = [
     chapter: "3장 · 판단 모듈", title: "현재 오차에 반응하라", short: "오차를 계산하고 P 제어값을 만듭니다.",
     story: "루미는 센서값을 읽지만 기준에서 얼마나 벗어났는지 알 수 없습니다. 현재 상태에 알맞은 반응 크기를 계산해야 합니다.",
     speech: "조금 벗어났을 때와 많이 벗어났을 때 똑같이 반응하면 안 될 것 같아요.",
-    connection: "1장의 target과 2장에서 읽은 sensor_value를 비교하면 지금 얼마나 벗어났는지 알 수 있어요.", activityKind: "calibration",
+    connection: "1장의 target과 2장에서 읽은 sensor_value를 비교하면 지금 얼마나 벗어났는지 알 수 있어요.",
+    conceptBrief: "PD 제어는 경계에서 생긴 오차를 모터 보정값으로 바꾸는 방법입니다. P는 지금 오차가 클수록 크게 반응하고, D는 다음 장에서 오차가 변하는 속도를 살핍니다.", activityKind: "calibration",
     goal: "현재 오차를 계산하고 kp를 곱해 P 제어값을 만듭니다.", reason: "기준에서 멀리 벗어날수록 더 크게 방향을 보정하기 위해 필요합니다.",
     success: ["오차 부호 판단", "P 계산식 작성", "3개 입력 검사"],
     question: "target이 50이고 sensor_value가 40이라면 error는 얼마일까요?", options: ["10", "-10", "40", "90"], answer: 0,
     whyQuestion: "P 제어에서 error에 kp를 곱하는 이유는 무엇일까요?",
     whyOptions: ["오차가 클수록 더 크게, 작을수록 더 작게 반응하기 위해", "오차의 부호를 항상 양수로 만들기 위해", "센서값을 기준값으로 바꾸기 위해", "반복문을 종료하기 위해"], whyAnswer: 0,
     whyFeedback: "kp는 현재 오차에 얼마나 민감하게 반응할지 정합니다. 같은 kp라면 큰 오차가 더 큰 보정을 만듭니다.",
+    conceptChecks: [
+      {badge:"WHY PD",question:"라인에서 이탈하거나 오차가 생겼을 때 PD 제어가 필요한 이유는 무엇일까요?",options:["오차의 크기와 변화를 보정값으로 바꿔 다시 경계로 돌아오기 위해", "센서값을 무조건 0으로 만들기 위해", "모터를 같은 속도로만 움직이기 위해", "검정색 영역의 중앙으로 들어가기 위해"],answer:0,feedback:"PD 제어는 기준과 현재 센서값의 차이를 이용해 로봇이 경계로 돌아갈 방향과 반응 크기를 정합니다.",codeClue:"먼저 error에 기준값 target과 현재값 sensor_value의 차이를 저장해요."},
+      {badge:"ERROR SIGN",question:"error = target - sensor_value일 때 센서값이 target보다 크면 error의 부호는 어떻게 될까요?",options:["음수", "양수", "항상 0", "계산할 수 없음"],answer:0,feedback:"현재 센서값이 기준보다 크면 target - sensor_value는 음수가 됩니다. 이 부호가 보정 방향을 구분합니다.",codeClue:"뺄셈 순서를 바꾸면 모터가 회전하는 방향도 반대로 바뀔 수 있어요."},
+      {badge:"P RESPONSE",question:"같은 kp에서 error가 5에서 10으로 커지면 p_control은 어떻게 될까요?",options:["두 배로 커진다", "절반으로 줄어든다", "변하지 않는다", "항상 음수가 된다"],answer:0,feedback:"P는 비례 제어입니다. 같은 Kp에서는 오차가 두 배가 되면 P 보정도 두 배가 됩니다.",codeClue:"p_control에는 kp와 error를 곱한 결과를 저장해요."},
+    ],
     hint: "error = target - sensor_value 순서로 50에서 40을 빼 보세요.",
     codeTitle: "오차와 P 제어 코드를 작성하세요.", codeHint: "설계도에 있는 변수 이름은 앞 단계와 연결됩니다. 식의 왼쪽과 오른쪽을 그대로 확인해 보세요.",
-    hintLevels: ["오차는 목표값과 현재값의 차이이며, P 제어에는 곱셈이 필요해요.", "error = target - sensor_value, p_control에는 kp와 error가 들어가요.", "error = target - sensor_value\np_control = kp * error"],
+    hintLevels: ["오차는 목표값과 현재값의 차이이며 뺄셈 순서가 방향을 결정해요.", "P는 proportional의 약자로 현재 오차에 비례해요.", "p_control의 오른쪽에는 P 계수와 현재 오차가 모두 필요해요."],
     codeGuide: [["error = target - sensor_value", "목표값에서 현재 센서값을 빼요."], ["p_control = kp * error", "현재 오차에 Kp를 곱해 반응 크기를 정해요."]],
-    starter: "error = \np_control = ", solution: "error = target - sensor_value\np_control = kp * error",
+    guidePatterns: ["error = 기준값 - 현재 센서값", "p_control = P 계수 × 현재 오차"],
+    starter: "# 경계 기준값과 현재 반사광의 차이를 error에 저장해요\n\n# 현재 오차에 Kp를 적용해 P 보정값을 만들어요\n", solution: "error = target - sensor_value\np_control = kp * error",
     recovered: "오차와 P 제어", tests: [["센서 40", "error 10"], ["센서 50", "error 0"], ["센서 65", "error -15"]],
   },
   {
     chapter: "4장 · 균형 모듈", title: "오차의 변화를 읽어라", short: "이전 오차와 비교해 D 제어값을 만듭니다.",
     story: "P 제어를 복구했지만 오차가 10, -8, 7, -6으로 빠르게 바뀝니다. 루미가 변화의 속도를 읽지 못해 흔들리고 있습니다.",
     speech: "지금 얼마나 벗어났는지는 알아요. 하지만 오차가 얼마나 빠르게 바뀌는지도 알고 싶어요.",
-    connection: "3장에서 만든 error를 직전 반복의 previous_error와 비교해 흔들림의 변화를 읽어 볼게요.", activityKind: "wave",
+    connection: "3장에서 만든 error를 직전 반복의 previous_error와 비교해 흔들림의 변화를 읽어 볼게요.",
+    conceptBrief: "현재 오차 하나만 보면 지금 얼마나 벗어났는지만 알 수 있습니다. 현재 오차에서 이전 오차를 빼면 변화량을 알 수 있고, D는 이 변화가 클수록 추가로 반응합니다.", activityKind: "wave",
     goal: "현재 오차와 이전 오차의 차이를 구하고 D 제어값을 계산합니다.", reason: "오차가 급격하게 변하는 상황에 대응하고 흔들림을 줄이기 위해 필요합니다.",
     success: ["변화량 이해", "D 계산식 작성", "이전값 비교 검사"],
     question: "현재 error가 8이고 previous_error가 3이라면 change는 얼마일까요?", options: ["5", "11", "-5", "24"], answer: 0,
     whyQuestion: "D 제어가 라인 주행의 흔들림을 줄이는 데 도움을 주는 이유는 무엇일까요?",
     whyOptions: ["오차가 빠르게 변할 때 그 변화를 감지해 추가로 대응하기 때문에", "항상 모터 출력을 0으로 만들기 때문에", "현재 오차를 무시하고 속도만 높이기 때문에", "센서값을 일정하게 고정하기 때문에"], whyAnswer: 0,
     whyFeedback: "D 제어는 현재 위치만 보지 않고 오차가 얼마나 빠르게 변하는지도 봅니다. 급격한 방향 변화를 일찍 감지할 수 있어요.",
+    conceptChecks: [
+      {badge:"TWO ERRORS",question:"현재 오차와 이전 오차를 모두 기억해야 하는 이유는 무엇일까요?",options:["두 값의 차이로 오차가 얼마나 변했는지 구하기 위해", "두 오차를 항상 같은 값으로 만들기 위해", "기본 속도를 두 배로 만들기 위해", "센서 읽기를 멈추기 위해"],answer:0,feedback:"현재값과 직전값이 있어야 시간에 따른 변화량을 계산할 수 있습니다.",codeClue:"change는 현재 error에서 previous_error를 뺀 값이에요."},
+      {badge:"D RESPONSE",question:"change의 절댓값이 클다는 것은 어떤 뜻일까요?",options:["오차가 짧은 시간에 빠르게 변하고 있다", "로봇이 반드시 정지했다", "기준값이 잘못 저장됐다", "현재 오차가 항상 0이다"],answer:0,feedback:"변화량이 크면 로봇이 경계를 빠르게 지나치거나 방향을 급하게 바꾸는 중일 수 있습니다.",codeClue:"d_control은 변화량 change에 kd를 곱해 만들어요."},
+      {badge:"UPDATE TIMING",question:"previous_error = error는 언제 실행해야 할까요?",options:["현재 반복의 P와 D 계산을 모두 마친 뒤", "현재 error를 계산하기 전", "함수를 정의하기 전", "센서를 읽지 않을 때만"],answer:0,feedback:"D 계산이 끝난 뒤 현재 오차를 저장해야 다음 반복에서 ‘이전 오차’로 사용할 수 있습니다.",codeClue:"이번 장에서는 두 오차를 비교하고, 최종장에서 계산이 끝난 뒤 previous_error를 갱신해요."},
+    ],
     hint: "change는 현재 오차에서 이전 오차를 뺀 값입니다. 8 - 3을 계산해 보세요.",
     codeTitle: "변화량과 D 제어 코드를 작성하세요.", codeHint: "현재 오차와 직전 오차를 먼저 비교한 다음, 변화량에 Kd를 곱합니다.",
-    hintLevels: ["변화량은 현재 오차에서 이전 오차를 빼서 구해요.", "change에는 error와 previous_error, d_control에는 kd와 change가 들어가요.", "change = error - previous_error\nd_control = kd * change"],
+    hintLevels: ["변화량은 현재 오차와 직전 오차의 차이예요.", "뺄셈의 앞에는 현재값, 뒤에는 이전값이 와요.", "D 제어값에는 D 계수와 방금 구한 변화량이 모두 필요해요."],
     codeGuide: [["change = error - previous_error", "현재 오차가 직전보다 얼마나 변했는지 계산"], ["d_control = kd * change", "변화가 클수록 더 빠르게 균형을 잡아요."]],
-    starter: "change = \nd_control = ", solution: "change = error - previous_error\nd_control = kd * change",
+    guidePatterns: ["change = 현재 오차 - 이전 오차", "d_control = D 계수 × 변화량"],
+    starter: "# 현재 오차와 직전 오차의 차이를 change에 저장해요\n\n# 오차 변화량에 Kd를 적용해 D 보정값을 만들어요\n", solution: "change = error - previous_error\nd_control = kd * change",
     recovered: "변화량과 D 제어", tests: [["8과 3 비교", "change 5"], ["-2와 4 비교", "change -6"], ["변화 없음", "change 0"]],
   },
   {
     chapter: "최종장 · 중앙 코어", title: "라인팔로잉을 완성하라", short: "P와 D를 결합하고 좌우 출력을 결정합니다.",
     story: "모든 판단 모듈이 복구됐습니다. 보정값을 좌우 출력에 반대로 적용하고 다음 반복을 위해 오차를 기억하면 됩니다.",
     speech: "지금까지 만든 코드를 하나로 연결해 주세요. 그러면 line_follow 명령이 다시 완성돼요.",
-    connection: "P의 현재 반응과 D의 변화 반응이 준비됐어요. 두 값을 합쳐 실제 좌우 모터의 속도로 연결합시다.", activityKind: "motors",
+    connection: "P의 현재 반응과 D의 변화 반응이 준비됐어요. 두 값을 합쳐 실제 좌우 모터의 속도로 연결합시다.",
+    conceptBrief: "correction은 P와 D의 합입니다. 한쪽 모터에 더하고 다른 쪽에서 빼면 두 바퀴의 속도 차이로 회전이 생깁니다. 계산이 끝나면 현재 error를 저장해 다음 반복의 previous_error로 사용합니다.", activityKind: "motors",
     goal: "P와 D를 결합해 좌우 출력을 만들고 previous_error를 갱신합니다.", reason: "계산한 보정값을 실제 방향 변화로 연결하고 다음 계산을 준비하기 위해 필요합니다.",
     success: ["PD 결합", "좌우 출력 작성", "최종 검사 통과"],
     question: "한쪽 출력에 correction을 더했다면 반대쪽 출력에는 어떻게 해야 할까요?", options: ["correction을 뺀다", "같이 더한다", "항상 0으로 만든다", "previous_error를 더한다"], answer: 0,
     whyQuestion: "kp만 사용하고 kd를 0으로 만들면 로봇은 어떤 움직임을 보이기 쉬울까요?",
     whyOptions: ["현재 오차에는 반응하지만 선을 중심으로 좌우 흔들림이 커질 수 있다", "센서를 전혀 읽지 못한다", "항상 완벽한 직선으로만 달린다", "두 모터가 자동으로 멈춘다"], whyAnswer: 0,
     whyFeedback: "P만으로도 선을 향해 움직이지만 빠른 변화를 다듬지 못해 좌우로 지나치며 흔들릴 수 있습니다.",
+    conceptChecks: [
+      {badge:"PD COMBINE",question:"최종 보정값 correction은 어떻게 만들까요?",options:["p_control + d_control", "p_control - base_speed", "target + sensor_value", "previous_error + base_speed"],answer:0,feedback:"P의 현재 오차 반응과 D의 변화 반응을 더해 하나의 보정값으로 사용합니다.",codeClue:"correction에 p_control과 d_control의 합을 저장해요."},
+      {badge:"TURN DIRECTION",question:"왼쪽 모터가 70, 오른쪽 모터가 50으로 움직이면 로봇은 어느 쪽으로 회전할까요?",options:["오른쪽", "왼쪽", "회전하지 않는다", "뒤로만 간다"],answer:0,feedback:"왼쪽 바퀴가 더 빠르면 로봇의 왼쪽이 더 멀리 나아가 몸체가 오른쪽으로 회전합니다.",codeClue:"양수 correction을 왼쪽에 더하고 오른쪽에서 빼면 오른쪽 회전이 생겨요."},
+      {badge:"NEXT LOOP",question:"현재 반복이 끝난 뒤 error를 previous_error에 저장하는 이유는 무엇일까요?",options:["다음 반복에서 오차 변화량을 계산하기 위해", "기준값을 지우기 위해", "두 모터를 같은 속도로 만들기 위해", "while 반복을 종료하기 위해"],answer:0,feedback:"이번 error는 다음 반복에서 직전 error가 됩니다. 그래야 새로운 change를 계산할 수 있어요.",codeClue:"모터 출력까지 계산한 마지막에 previous_error = error를 작성해요."},
+    ],
     hint: "방향을 바꾸려면 좌우 출력에 서로 반대되는 보정이 적용되어야 합니다.",
     codeTitle: "line_follow 함수의 마지막 부분을 완성하세요.", codeHint: "보정값을 좌우 출력에 반대로 적용한 뒤, 이번 오차를 다음 반복을 위해 저장합니다.",
-    hintLevels: ["P와 D는 더하고, 같은 correction을 좌우 모터에는 반대 부호로 적용해요.", "left_power에는 + correction, right_power에는 - correction이 들어가요.", "correction = p_control + d_control\nleft_power = base_speed + correction\nright_power = base_speed - correction\nprevious_error = error"],
+    hintLevels: ["P와 D의 반응을 하나의 correction으로 합쳐요.", "방향을 바꾸려면 좌우 모터 출력 사이에 속도 차이가 필요해요.", "현재 반복의 모든 계산이 끝난 뒤 error를 다음 반복을 위해 기억해요."],
     codeGuide: [["correction = p_control + d_control", "P와 D 반응을 하나의 보정값으로 합쳐요."], ["left_power = base_speed + correction", "왼쪽 출력에는 보정값을 더해요."], ["right_power = base_speed - correction", "오른쪽 출력에는 보정값을 빼요."], ["previous_error = error", "이번 오차를 다음 반복의 이전 오차로 저장"]],
-    starter: "correction = \nleft_power = \nright_power = \n\nleft_motor.dc(left_power)\nright_motor.dc(right_power)\n\nprevious_error = ",
+    guidePatterns: ["correction = P 반응 + D 반응", "left_power = 기본 속도 + 보정값", "right_power = 기본 속도 - 보정값", "previous_error = 현재 오차"],
+    starter: "# P와 D의 반응을 correction으로 합쳐요\n\n# 같은 보정값을 좌우 기본 속도에 반대 부호로 적용해요\n\n# 계산한 출력을 실제 좌우 모터에 전달해요\nleft_motor.dc(left_power)\nright_motor.dc(right_power)\n\n# 이번 오차를 다음 반복의 이전 오차로 저장해요\n",
     solution: "correction = p_control + d_control\nleft_power = base_speed + correction\nright_power = base_speed - correction\n\nleft_motor.dc(left_power)\nright_motor.dc(right_power)\n\nprevious_error = error",
     recovered: "완성된 line_follow 함수", tests: [["PD 결합", "P + D"], ["왼쪽 출력", "속도 + 보정"], ["오른쪽 출력", "속도 - 보정"]],
   },
@@ -153,7 +212,7 @@ const missions: Mission[] = [
 type ValidationResult = { passed: boolean; missing: string[] };
 
 function expressionValue(expression: string, variables: Record<string, number>): number | null {
-  const tokens = expression.match(/\d+(?:\.\d+)?|[A-Za-z_]\w*|[()+\-*]/g);
+  const tokens = expression.match(/\d+(?:\.\d+)?|[A-Za-z_]\w*|[()+\-*/]/g);
   if(!tokens || tokens.join("")!==expression.replace(/\s+/g,""))return null;
   const parsedTokens=tokens;
   let cursor=0;
@@ -174,11 +233,12 @@ function expressionValue(expression: string, variables: Record<string, number>):
   };
   const parseMultiplicative=():number|null=>{
     let value=parsePrimary();
-    while(parsedTokens[cursor]==="*"){
-      cursor++;
+    while(parsedTokens[cursor]==="*"||parsedTokens[cursor]==="/"){
+      const operator=parsedTokens[cursor++];
       const right=parsePrimary();
       if(value===null||right===null)return null;
-      value*=right;
+      if(operator==="/"&&right===0)return null;
+      value=operator==="*"?value*right:value/right;
     }
     return value;
   };
@@ -227,23 +287,36 @@ function validate(id: number, code: string, attempt=1): ValidationResult {
   const executable = code.split("\n").filter((line)=>!line.trimStart().startsWith("#")).join("\n");
   const compact = executable.replace(/\s+/g, "");
   const has = (snippet:string)=>compact.includes(snippet.replace(/\s+/g, ""));
-  const hasNumber = (name:string, expected:number)=>{
-    const match = executable.match(new RegExp(`^\\s*${name}\\s*=\\s*([^#\\n]+)`, "m"));
-    if(!match)return false;
-    const value = Number(match[1].trim());
-    return Number.isFinite(value)&&Math.abs(value-expected)<1e-9;
-  };
-
   if(id===0){
     const expected=["센서 확인","오차 계산","방향 보정","반복"];
     const comments=code.split("\n").map((line)=>line.match(/^\s*#\s*(.+?)\s*$/)?.[1]??"").filter(Boolean);
-    const missing=expected.flatMap((label,index)=>comments[index]===label?[]:[attempt>1?`${index+1}번째 과정의 역할을 다시 확인해 보세요.`:"센서 확인부터 반복까지 처리 순서가 이어지는지 확인해 보세요."]);
+    const positions=expected.map((label)=>comments.findIndex((comment)=>comment===label));
+    const inOrder=positions.every((position,index)=>position>=0&&(index===0||position>positions[index-1]));
+    const missing=inOrder?[]:[attempt>1?"센서 확인 → 오차 계산 → 방향 보정 → 반복 순서로 네 역할 주석을 추가해 보세요.":"가이드 주석 아래에 네 처리 역할을 순서대로 직접 작성해 보세요."];
     return {passed:missing.length===0,missing};
   }
 
   if(id===1){
-    const checks:[string,()=>boolean][]=[["기본 속도",()=>hasNumber("base_speed",60)],["센서 기준값",()=>hasNumber("target",50)],["P 계수",()=>hasNumber("kp",.8)],["D 계수",()=>hasNumber("kd",.3)]];
-    const missing=checks.filter(([,test])=>!test()).map(([label])=>`${label}: 변수 이름과 저장한 값의 종류를 확인해 보세요.`);
+    const value=(name:string,variables:Record<string,number>={})=>{
+      const expression=assignmentExpression(executable,name);
+      return expression?expressionValue(expression,variables):null;
+    };
+    const black=value("black_value");
+    const white=value("white_value");
+    const baseSpeed=value("base_speed");
+    const kp=value("kp");
+    const kd=value("kd");
+    const targetExpression=assignmentExpression(executable,"target");
+    const sensorValues=black!==null&&white!==null?{black_value:black,white_value:white}:{};
+    const target=targetExpression?expressionValue(targetExpression,sensorValues):null;
+    const usesMeasurements=Boolean(targetExpression&&/\bblack_value\b/.test(targetExpression)&&/\bwhite_value\b/.test(targetExpression));
+    const missing:string[]=[];
+    if(black===null||white===null)missing.push("반사광 측정: black_value와 white_value에 0~100 사이 측정값을 저장해 보세요.");
+    else if(black<0||white>100||black>=white)missing.push("반사광 측정: 검정값은 흰색값보다 작아야 하며 두 값 모두 0~100 범위여야 해요.");
+    if(baseSpeed===null||baseSpeed<=0||baseSpeed>100)missing.push("기본 속도: base_speed에 로봇이 안전하게 움직일 1~100 사이 값을 선택해 보세요.");
+    if(target===null||black===null||white===null||!usesMeasurements||Math.abs(target-(black+white)/2)>1e-8)missing.push("센서 기준값: target을 black_value와 white_value의 평균을 구하는 식으로 작성해 보세요.");
+    if(kp===null||kp<=0||kp>3)missing.push("P 계수: kp에는 0보다 크고 3 이하인 조절값을 선택해 보세요.");
+    if(kd===null||kd<0||kd>2)missing.push("D 계수: kd에는 0 이상 2 이하인 조절값을 선택해 보세요.");
     return {passed:missing.length===0,missing};
   }
   if(id===2){
@@ -283,8 +356,30 @@ function validate(id: number, code: string, attempt=1): ValidationResult {
 }
 
 function numberFromCode(code:string,name:string,fallback:number){
-  const value=Number(assignmentExpression(code,name));
-  return Number.isFinite(value)?value:fallback;
+  const expression=assignmentExpression(code,name);
+  const value=expression?expressionValue(expression,{}):null;
+  return value!==null&&Number.isFinite(value)?value:fallback;
+}
+
+function testResultsFor(id:number,code:string,fallback:Array<[string,string]>):Array<[string,string]>{
+  if(id!==1)return fallback;
+  const read=(name:string,variables:Record<string,number>={})=>{
+    const expression=assignmentExpression(code,name);
+    return expression?expressionValue(expression,variables):null;
+  };
+  const black=read("black_value");
+  const white=read("white_value");
+  const baseSpeed=read("base_speed");
+  const kp=read("kp");
+  const kd=read("kd");
+  const target=black!==null&&white!==null?read("target",{black_value:black,white_value:white}):null;
+  const show=(value:number|null)=>value===null?"확인 필요":Number(value.toFixed(2)).toString();
+  return [
+    ["내 반사광",`검정 ${show(black)} · 흰색 ${show(white)}`],
+    ["내 기준값",`${show(target)} · 두 반사광의 평균`],
+    ["내 기본 속도",show(baseSpeed)],
+    ["내 제어 계수",`Kp ${show(kp)} · Kd ${show(kd)}`],
+  ];
 }
 
 function indentFragment(fragment:string,spaces=8){
@@ -348,7 +443,7 @@ function useGameAudio(enabled:boolean){
     if(!enabled)return;
     const context=activate();
     const now=context.currentTime;
-    if(cue==="type"){tone(context,540,now,.035,.007,"square");return;}
+    if(cue==="type"){tone(context,520,now,.04,.018,"square");return;}
     if(cue==="click"){tone(context,360,now,.07,.025,"triangle");tone(context,520,now+.04,.09,.018,"triangle");return;}
     if(cue==="wrong"){tone(context,190,now,.15,.035,"sawtooth");tone(context,145,now+.11,.2,.025,"sawtooth");return;}
     const notes=cue==="clear"?[392,523.25,659.25,783.99]:[440,554.37,659.25];
@@ -361,10 +456,13 @@ function useGameAudio(enabled:boolean){
     void context.resume();
     const ambient=()=>{
       const start=context.currentTime+.04;
-      [196,246.94,293.66,246.94].forEach((note,index)=>tone(context,note,start+index*.72,.82,.008,"sine"));
+      [174.61,196,220,246.94,220,196,174.61,196].forEach((note,index)=>{
+        tone(context,note,start+index*1.02,1.18,.012,"sine");
+        tone(context,note/2,start+index*1.02,1.22,.0035,"triangle");
+      });
     };
     ambient();
-    const timer=window.setInterval(ambient,3600);
+    const timer=window.setInterval(ambient,8160);
     return ()=>window.clearInterval(timer);
   },[enabled,ready]);
   useEffect(()=>()=>{void contextRef.current?.close()},[]);
@@ -455,7 +553,7 @@ export default function Home() {
   const [completed,setCompleted] = useState<number[]>([]);
   const [active,setActive] = useState(0);
   const [step,setStep] = useState(0);
-  const [questionRound,setQuestionRound] = useState<0|1>(0);
+  const [questionRound,setQuestionRound] = useState(0);
   const [choice,setChoice] = useState<number|null>(null);
   const [checked,setChecked] = useState(false);
   const [code,setCode] = useState(missions[0].starter);
@@ -464,7 +562,6 @@ export default function Home() {
   const [validationIssues,setValidationIssues] = useState<string[]>([]);
   const [attempts,setAttempts] = useState(0);
   const [hintLevel,setHintLevel] = useState(0);
-  const [usedSolution,setUsedSolution] = useState(false);
   const [studentCodes,setStudentCodes] = useState(()=>missions.map((item)=>item.starter));
   const [assistHistory,setAssistHistory] = useState(()=>missions.map(()=>({hintLevel:0,usedSolution:false,attempts:0})));
   const [dialogueIndex,setDialogueIndex] = useState(0);
@@ -475,37 +572,52 @@ export default function Home() {
   const [codeCopied,setCodeCopied] = useState(false);
   const [soundOn,setSoundOn] = useState(true);
   const [endingTab,setEndingTab] = useState<"code"|"lab">("lab");
+  const [writingMode,setWritingMode] = useState<"guided"|"free">("guided");
+  const [showLearningReview,setShowLearningReview] = useState(false);
   const audio=useGameAudio(soundOn);
   const mission = missions[active];
+  const learningChecks=learningChecksFor(mission);
   const dialogue = [
     mission.connection,
     mission.speech,
+    mission.conceptBrief,
     mission.story,
     `${name} 엔지니어님, 이번 임무에서 할 일은 다음과 같아요. ${mission.goal} 준비되면 퀘스트 내용을 확인해 주세요.`,
   ];
-  const currentQuestion=questionRound===0?mission.question:mission.whyQuestion;
-  const rawOptions=questionRound===0?mission.options:mission.whyOptions;
-  const rawAnswer=questionRound===0?mission.answer:mission.whyAnswer;
+  const currentCheck=learningChecks[Math.min(questionRound,learningChecks.length-1)];
+  const currentQuestion=currentCheck.question;
+  const rawOptions=currentCheck.options;
+  const rawAnswer=currentCheck.answer;
   const optionShift=(active*2+questionRound+1)%rawOptions.length;
   const currentOptions=[...rawOptions.slice(optionShift),...rawOptions.slice(0,optionShift)];
   const currentAnswer=(rawAnswer-optionShift+rawOptions.length)%rawOptions.length;
   const nextMission = missions.findIndex((_,i)=>!completed.includes(i));
-  const stageNames = ["임무 확인","생각하기","코드 작성","테스트"];
+  const stageNames = ["임무 확인","개념 학습","코드 작성","테스트"];
   const activityCopy={
     route:["ROUTE NAVIGATION","복구 경로를 연결해 주세요"],memory:["MEMORY CALIBRATION","기억 모듈을 설정해 주세요"],command:["COMMAND ASSEMBLY","명령 모듈을 조립해 주세요"],calibration:["SENSOR CALIBRATION","판단 회로를 보정해 주세요"],wave:["SIGNAL ANALYSIS","오차 파형을 분석해 주세요"],motors:["MOTOR LINK","좌우 출력을 연결해 주세요"],
   }[mission.activityKind];
   const finalProgram=useMemo(()=>buildStudentProgram(studentCodes),[studentCodes]);
+  const testRows=testResultsFor(active,code,mission.tests);
   const studentKp=numberFromCode(studentCodes[1],"kp",.8);
   const studentKd=numberFromCode(studentCodes[1],"kd",.3);
 
   useEffect(()=>{
     const restoreSession = window.setTimeout(()=>{
       const savedName = localStorage.getItem("linecore-name");
+      const storageVersion = localStorage.getItem("linecore-learning-version");
       const savedProgress = localStorage.getItem("linecore-progress");
       const savedCodes = localStorage.getItem("linecore-codes");
       const savedAssist = localStorage.getItem("linecore-assist");
       const savedSound = localStorage.getItem("linecore-sound");
       if(savedName) setName(savedName);
+      if(storageVersion!=="2"){
+        localStorage.removeItem("linecore-progress");
+        localStorage.removeItem("linecore-codes");
+        localStorage.removeItem("linecore-assist");
+        localStorage.setItem("linecore-learning-version","2");
+        if(savedSound!==null)setSoundOn(savedSound==="on");
+        return;
+      }
       try{if(savedProgress)setCompleted(JSON.parse(savedProgress));}catch{localStorage.removeItem("linecore-progress")}
       try{if(savedCodes)setStudentCodes(JSON.parse(savedCodes));}catch{localStorage.removeItem("linecore-codes")}
       try{if(savedAssist)setAssistHistory(JSON.parse(savedAssist));}catch{localStorage.removeItem("linecore-assist")}
@@ -530,12 +642,13 @@ export default function Home() {
   function resetLearning(){
     const nextCodes=missions.map((item)=>item.starter);
     const nextAssist=missions.map(()=>({hintLevel:0,usedSolution:false,attempts:0}));
-    setCompleted([]);localStorage.setItem("linecore-progress","[]");persistLearning(nextCodes,nextAssist);
+    setCompleted([]);localStorage.setItem("linecore-learning-version","2");localStorage.setItem("linecore-progress","[]");persistLearning(nextCodes,nextAssist);
     return {nextCodes,nextAssist};
   }
   function openMission(id:number,codes=studentCodes,assists=assistHistory){
     const assist=assists[id]??{hintLevel:0,usedSolution:false,attempts:0};
-    setActive(id);setStep(0);setQuestionRound(0);setChoice(null);setChecked(false);setCode(codes[id]||missions[id].starter);setPassed(false);setShowClear(false);setValidationIssues([]);setAttempts(assist.attempts);setHintLevel(assist.hintLevel);setUsedSolution(assist.usedSolution);setDialogueIndex(0);setDialogueDone(false);setDialogueInstant(false);setBriefingReady(false);setScreen("mission");
+    const savedCode=codes[id]||missions[id].starter;
+    setActive(id);setStep(0);setQuestionRound(0);setChoice(null);setChecked(false);setCode(savedCode);setPassed(false);setShowClear(false);setShowLearningReview(false);setValidationIssues([]);setAttempts(assist.attempts);setHintLevel(assist.hintLevel);setWritingMode(savedCode.includes("#")?"guided":"free");setDialogueIndex(0);setDialogueDone(false);setDialogueInstant(false);setBriefingReady(false);setScreen("mission");
   }
   function startGame(){
     audio.activate();audio.play("click");
@@ -571,17 +684,17 @@ export default function Home() {
     const nextAssist=assistHistory.map((item,index)=>index===active?{...item,hintLevel:Math.max(item.hintLevel,next)}:item);
     persistLearning(studentCodes,nextAssist);
   }
-  function fillSolution(){
-    audio.play("click");setCode(mission.solution);setHintLevel(3);setUsedSolution(true);
-    const nextCodes=studentCodes.map((item,index)=>index===active?mission.solution:item);
-    const nextAssist=assistHistory.map((item,index)=>index===active?{...item,hintLevel:3,usedSolution:true}:item);
-    persistLearning(nextCodes,nextAssist);
+  function changeWritingMode(next:"guided"|"free"){
+    if(next===writingMode)return;
+    const hasStudentWork=code.trim()&&code.trim()!==mission.starter.trim();
+    if(hasStudentWork&&!window.confirm("작성 중인 코드를 지우고 입력 모드를 바꿀까요?"))return;
+    audio.play("click");setWritingMode(next);setCode(next==="guided"?mission.starter:"");
   }
   function runCode(){
     const nextAttempt=attempts+1;
     const result=validate(active,code,nextAttempt);
     const nextCodes=studentCodes.map((item,index)=>index===active?code:item);
-    const nextAssist=assistHistory.map((item,index)=>index===active?{...item,hintLevel,usedSolution,attempts:nextAttempt}:item);
+    const nextAssist=assistHistory.map((item,index)=>index===active?{...item,hintLevel,usedSolution:false,attempts:nextAttempt}:item);
     persistLearning(nextCodes,nextAssist);setAttempts(nextAttempt);setPassed(result.passed);setShowClear(false);setValidationIssues(Array.from(new Set(result.missing)));
     audio.play(result.passed?"correct":"wrong");setStep(3);
   }
@@ -621,13 +734,13 @@ export default function Home() {
       <button className="gameStart" onClick={startGame}><span><Icon name="play" size={24}/></span>{startLabel}<Icon name="arrow"/></button>
     </section>
     {name.trim()&&<button className="changePlayer" onClick={()=>transition(()=>setScreen("login"),"학생 정보를 전환하는 중",450)}><Icon name="user" size={14}/> 학생 변경</button>}
-    <button className="soundToggle titleSound" onClick={toggleSound} aria-pressed={soundOn}><Icon name={soundOn?"sound":"mute"} size={17}/><span>{soundOn?"사운드 ON":"사운드 OFF"}</span></button>
+    <button className="soundToggle titleSound" onClick={toggleSound} aria-pressed={soundOn} title="차분한 BGM과 타이핑 효과음"><Icon name={soundOn?"sound":"mute"} size={17}/><span>{soundOn?"BGM + 효과음 ON":"BGM + 효과음 OFF"}</span></button>
     <div className="titleModules"><span>VARIABLE</span><i/><span>FUNCTION</span><i/><span>P CONTROL</span><i/><span>D CONTROL</span></div>
   </main>{loading}</>;
 
   if(screen==="login") return <><main className="loginGame" aria-hidden={Boolean(loadingMessage)} inert={Boolean(loadingMessage)}>
     <button className="backTitle" onClick={()=>setScreen("title")}><Icon name="arrow" size={17}/> 타이틀로</button>
-    <button className="soundToggle loginSound" onClick={toggleSound} aria-pressed={soundOn}><Icon name={soundOn?"sound":"mute"} size={17}/><span>{soundOn?"사운드 ON":"사운드 OFF"}</span></button>
+    <button className="soundToggle loginSound" onClick={toggleSound} aria-pressed={soundOn} title="차분한 BGM과 타이핑 효과음"><Icon name={soundOn?"sound":"mute"} size={17}/><span>{soundOn?"BGM + 효과음 ON":"BGM + 효과음 OFF"}</span></button>
     <img className="loginLogo" src="/assets/playwell-logo.png" alt="Playwell"/>
     <img className="loginCharacter" src="/assets/lumi-guide.webp" alt="학생을 기다리는 안내 로봇 루미"/>
     <form className="gameLoginCard" onSubmit={login}>
@@ -642,7 +755,7 @@ export default function Home() {
   if(screen==="ending") return <><main className="endingScreen" aria-hidden={Boolean(loadingMessage)} inert={Boolean(loadingMessage)}>
     <img className="endingLogo" src="/assets/playwell-logo.png" alt="Playwell"/>
     <img className="endingCharacter" src="/assets/lumi-clear.webp" alt="라인 코어를 복구한 루미"/>
-    <button className="soundToggle endingSound" onClick={toggleSound} aria-pressed={soundOn}><Icon name={soundOn?"sound":"mute"} size={17}/><span>{soundOn?"사운드 ON":"사운드 OFF"}</span></button>
+    <button className="soundToggle endingSound" onClick={toggleSound} aria-pressed={soundOn} title="차분한 BGM과 타이핑 효과음"><Icon name={soundOn?"sound":"mute"} size={17}/><span>{soundOn?"BGM + 효과음 ON":"BGM + 효과음 OFF"}</span></button>
     <section className="endingPanel">
       <div className="endingSummary"><span className="endingCore"><Icon name="check" size={39}/></span><p className="kicker">LINE CORE RESTORED</p><h1>라인 코어<br/>복구 완료</h1><p>{name} 엔지니어가 직접 작성한 모듈이 하나의 <code>line_follow()</code> 함수로 연결됐습니다.</p><div className="endingModules"><span>변수 설정</span><span>함수 정의</span><span>P 제어</span><span>D 제어</span><span>좌우 출력</span></div><div className="endingActions"><button className={endingTab==="lab"?"active":""} onClick={()=>setEndingTab("lab")}><Icon name="target" size={16}/> 주행 실험</button><button className={endingTab==="code"?"active":""} onClick={()=>setEndingTab("code")}><Icon name="code" size={16}/> 내 전체 코드</button></div><button className="gameStart small" onClick={()=>transition(()=>setScreen("title"),"타이틀 화면으로 돌아가는 중",550)}>타이틀로 돌아가기 <Icon name="arrow"/></button></div>
       {endingTab==="lab"?<PDSimulator initialKp={studentKp} initialKd={studentKd}/>:<section className="finalCodePanel" aria-label="완성된 line_follow 전체 코드">
@@ -658,7 +771,7 @@ export default function Home() {
   </main>{loading}</>;
 
   return <><main className="gameScreen" aria-hidden={Boolean(loadingMessage)} inert={Boolean(loadingMessage)}>
-    <header className="gameHud" aria-hidden={showClear} inert={showClear}><img src="/assets/playwell-logo.png" alt="Playwell"/><div className="chapterInfo"><small>{mission.chapter}</small><b>{mission.title}</b></div><div className="chapterProgress"><span>CORE {active+1} / {missions.length}</span><div>{missions.map((_,i)=><i className={i<active?"done":i===active?"active":""} key={i}/>)}</div></div><div className="stageProgress"><small>{stageNames[step]}</small><div>{stageNames.map((s,i)=><i className={i<step?"done":i===step?"active":""} title={s} key={s}/>)}</div></div><div className="hudActions"><button className="soundToggle" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn?"사운드 끄기":"사운드 켜기"}><Icon name={soundOn?"sound":"mute"} size={16}/></button><button className="exitGame" onClick={()=>transition(()=>setScreen("title"),"게임을 안전하게 저장하는 중",500)}>게임 종료</button></div></header>
+    <header className="gameHud" aria-hidden={showClear} inert={showClear}><img src="/assets/playwell-logo.png" alt="Playwell"/><div className="chapterInfo"><small>{mission.chapter}</small><b>{mission.title}</b></div><div className="chapterProgress"><span>CORE {active+1} / {missions.length}</span><div>{missions.map((_,i)=><i className={i<active?"done":i===active?"active":""} key={i}/>)}</div></div><div className="stageProgress"><small>{stageNames[step]}</small><div>{stageNames.map((s,i)=><i className={i<step?"done":i===step?"active":""} title={s} key={s}/>)}</div></div><div className="hudActions"><button className="soundToggle" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn?"BGM과 효과음 끄기":"BGM과 효과음 켜기"}><Icon name={soundOn?"sound":"mute"} size={16}/></button><button className="exitGame" onClick={()=>transition(()=>setScreen("title"),"게임을 안전하게 저장하는 중",500)}>게임 종료</button></div></header>
     <section className={`gameViewport stage${step}`}>
     <section className={`missionMain ${step===0?"introMode":""}`}>
       {step===0&&<section className={`rpgScene ${briefingReady?"missionReady":""}`} aria-label={`${mission.title} ${briefingReady?"미션 정보":"도입 대화"}`}>
@@ -697,12 +810,12 @@ export default function Home() {
           </div>
           <div className="routeSignal" aria-live="polite">
             <span><i/><i/><i/><i/></span>
-            <div><small>THINK CHECK {questionRound+1} / 2</small><b>{checked?(choice===currentAnswer?"CORE STABLE":"CHECK AGAIN"):choice!==null?"ANSWER LOCKED":"SCANNING"}</b></div>
+            <div><small>CONCEPT CHECK {questionRound+1} / {learningChecks.length}</small><b>{checked?(choice===currentAnswer?"CORE STABLE":"CHECK AGAIN"):choice!==null?"ANSWER LOCKED":"SCANNING"}</b></div>
           </div>
         </div>
         <div className="routeConsole">
-          <div className="questionRounds" aria-label="생각하기 진행"><i className="active">1</i><span/><i className={questionRound===1?"active":""}>2</i><b>{questionRound===0?"문법·계산 확인":"역할·결과 예측"}</b></div>
-          <div className="routePrompt"><span><Icon name={questionRound===0?"target":"brain"} size={23}/></span><div><small>{questionRound===0?"SYSTEM CHECK":"WHY CHECK"}</small><h2>{currentQuestion}</h2></div></div>
+          <div className="questionRounds" aria-label={`개념 문제 ${questionRound+1} / ${learningChecks.length}`}>{learningChecks.map((check,index)=><i className={index<=questionRound?"active":""} key={`${check.badge}-${index}`}>{index+1}</i>)}<b>{currentCheck.badge}</b></div>
+          <div className="routePrompt"><span><Icon name={questionRound===0?"target":"brain"} size={23}/></span><div><small>{currentCheck.badge}</small><h2>{currentQuestion}</h2></div></div>
           <div className={`routeOptions ${checked&&choice===currentAnswer?"resolved":""}`}>
             {currentOptions.map((option,i)=>{
               const selected=choice===i;
@@ -720,29 +833,29 @@ export default function Home() {
                 onClick={()=>{if(resolved)return;audio.play("click");setChoice(i);setChecked(false)}}>
                 <span className="routeCardSelector" aria-hidden="true">{wrong?<Icon name="x" size={17}/>:selected?<Icon name="check" size={17}/>:null}</span>
                 <span className="routeCardTop"><b>{mission.activityKind.toUpperCase()} {String.fromCharCode(65+i)}</b><i>{correct?"VERIFIED":locked?"LOCKED":wrong?"RETRY":selected?"SELECTED":"STANDBY"}</i></span>
-                {mission.activityKind==="route"&&questionRound===0?<span className="routePath">{option.split(" → ").map((part,j)=><span className="routeNode" key={`${part}-${j}`}><b>{part}</b></span>)}</span>:<span className="conceptChoice"><i aria-hidden="true">{String.fromCharCode(65+i)}</i><b>{option}</b></span>}
+                {mission.activityKind==="route"&&option.includes(" → ")?<span className="routePath">{option.split(" → ").map((part,j)=><span className="routeNode" key={`${part}-${j}`}><b>{part}</b></span>)}</span>:<span className="conceptChoice"><i aria-hidden="true">{String.fromCharCode(65+i)}</i><b>{option}</b></span>}
               </button>;
             })}
           </div>
           <div className={`routeOutcome ${checked?(choice===currentAnswer?"success":"error"):"pending"}`} aria-live="polite">
             <span className="routeOutcomeIcon"><Icon name={checked?(choice===currentAnswer?"check":"terminal"):questionRound===0?"target":"brain"} size={20}/></span>
-            <div><b>{checked?(choice===currentAnswer?questionRound===0?"첫 번째 코어 확인 완료":"개념 연결 완료":"한 번 더 생각해 볼까요?"):choice!==null?"선택한 답을 확정하세요":"분석 입력 대기 중"}</b><p>{checked?(choice===currentAnswer?questionRound===0?"이제 이 코드가 왜 필요한지 확인해 볼게요.":mission.whyFeedback:questionRound===0?mission.hint:"결과가 실제 로봇 움직임에 어떤 영향을 주는지 떠올려 보세요."):choice!==null?"선택한 이유를 마음속으로 설명해 보세요.":"정답을 고르기 전에 루미의 질문을 천천히 읽어 보세요."}</p></div>
+            <div><b>{checked?(choice===currentAnswer?questionRound===learningChecks.length-1?"코드 작성 준비 완료":`${questionRound+1}번째 개념 확인 완료`:"한 번 더 생각해 볼까요?"):choice!==null?"선택한 답을 확정하세요":"분석 입력 대기 중"}</b><p>{checked?(choice===currentAnswer?currentCheck.feedback:"루미의 설명에서 각 값의 역할과 실제 움직임을 다시 떠올려 보세요."):choice!==null?"선택한 이유를 마음속으로 설명해 보세요.":"정답을 고르기 전에 루미의 질문을 천천히 읽어 보세요."}</p></div>
           </div>
           <div className="routeActions">
             <button className="routeBack" onClick={()=>goToStep(0,"미션 브리핑으로 돌아가는 중")}>임무 확인</button>
-            <button className={`routeConfirm ${checked&&choice===currentAnswer?"success":""}`} disabled={choice===null} onClick={checked&&choice===currentAnswer?questionRound===0?()=>{audio.play("correct");setQuestionRound(1);setChoice(null);setChecked(false)}:()=>goToStep(2,"복구 코드 편집기를 여는 중",true):checked?()=>{audio.play("click");setChoice(null);setChecked(false)}:()=>{setChecked(true);audio.play(choice===currentAnswer?"correct":"wrong")}}>
-              <span><Icon name={checked&&choice===currentAnswer?questionRound===0?"brain":"code":"target"} size={18}/></span>{checked?(choice===currentAnswer?questionRound===0?"왜 그런지 확인":"복구 코드 작성":"다시 선택"):"답 확정"}<Icon name="arrow" size={20}/>
+            <button className={`routeConfirm ${checked&&choice===currentAnswer?"success":""}`} disabled={choice===null} onClick={checked&&choice===currentAnswer?questionRound<learningChecks.length-1?()=>{audio.play("correct");setQuestionRound((value)=>value+1);setChoice(null);setChecked(false)}:()=>goToStep(2,"복구 코드 편집기를 여는 중",true):checked?()=>{audio.play("click");setChoice(null);setChecked(false)}:()=>{setChecked(true);audio.play(choice===currentAnswer?"correct":"wrong")}}>
+              <span><Icon name={checked&&choice===currentAnswer?questionRound<learningChecks.length-1?"brain":"code":"target"} size={18}/></span>{checked?(choice===currentAnswer?questionRound<learningChecks.length-1?"다음 개념":"코드로 구현":"다시 선택"):"답 확정"}<Icon name="arrow" size={20}/>
             </button>
           </div>
         </div>
       </section>}
-      {step===2&&<section className="stagePanel codeStage">
+      {step===2&&<section className="stagePanel codeStage" aria-hidden={showLearningReview} inert={showLearningReview}>
         <ActivityHead icon="code" label="STEP 3 · 코드 작성" title={mission.codeTitle} text={mission.codeHint}/>
         <section className="learningReason"><span><Icon name="brain" size={19}/></span><div><small>WHY THIS CODE?</small><b>왜 이 코드를 작성할까요?</b><p>{mission.reason}</p></div></section>
         {active>0&&<div className="coreAssemblyStrip" aria-label="지금까지 복구한 코드 모듈"><small>RECOVERED CORE</small>{missions.slice(1,active+1).map((item,index)=><span key={item.recovered}><Icon name="check" size={12}/>{index+1} · {item.recovered}</span>)}<i/><b>NOW · {mission.recovered}</b></div>}
         <section className="codeBlueprint" aria-label="이번 미션의 복구 설계도">
-          <div className="blueprintTitle"><Icon name="book" size={18}/><span><small>ROLE BLUEPRINT</small><b>코드 역할 설계도</b></span><em>{hintLevel>=3?"전체 코드 공개":"코드는 아직 잠김"}</em></div>
-          <div className="blueprintItems">{mission.codeGuide.map(([snippet,role],index)=><article className={hintLevel>=3?"revealed":"lockedGuide"} key={snippet}><small>CORE {String(index+1).padStart(2,"0")}</small><p>{role}</p>{hintLevel>=3?<code>{snippet}</code>:<span><Icon name="lock" size={12}/> 직접 구현</span>}</article>)}</div>
+          <div className="blueprintTitle"><Icon name="book" size={18}/><span><small>ROLE BLUEPRINT</small><b>코드 역할 설계도</b></span><em>정답이 아닌 작성 패턴</em></div>
+          <div className="blueprintItems">{mission.codeGuide.map(([snippet,role],index)=><article className="patternGuide" key={snippet}><small>CORE {String(index+1).padStart(2,"0")}</small><p>{role}</p><code>{mission.guidePatterns[index]}</code></article>)}</div>
         </section>
         <section className={`hintDock level${hintLevel}`} aria-live="polite">
           <div><span><Icon name="light" size={17}/></span><div><small>PROGRESSIVE HINT · {hintLevel} / 3</small><b>{hintLevel===0?"막히면 작은 단서부터 열어 보세요":hintLevel===3?"전체 설계도가 열렸어요":`${hintLevel}단계 단서를 사용 중이에요`}</b></div></div>
@@ -750,12 +863,13 @@ export default function Home() {
           {hintLevel<3&&<button onClick={revealHint}><Icon name="light" size={14}/>{hintLevel+1}단계 힌트 열기</button>}
         </section>
         <div className="editor">
-          <div className="editorTop"><span/><span/><span/><b>mission_{active+1}.py</b>{usedSolution&&<em className="assistBadge"><Icon name="light" size={12}/> 전체 코드 도움 사용</em>}<div className="editorTools"><button onClick={()=>{audio.play("click");setCode(mission.starter)}}><Icon name="terminal" size={14}/> 초기 코드 복원</button><button onClick={fillSolution}><Icon name="book" size={14}/> 설계도대로 채우기</button></div></div>
+          <div className="editorTop"><span/><span/><span/><b>mission_{active+1}.py</b><em className={`writingBadge ${writingMode}`}><Icon name={writingMode==="guided"?"book":"code"} size={12}/>{writingMode==="guided"?"주석 가이드 모드":"자유 작성 모드"}</em><div className="editorTools"><button className={writingMode==="guided"?"active":""} onClick={()=>changeWritingMode("guided")}><Icon name="book" size={14}/> 주석 가이드</button><button className={writingMode==="free"?"active":""} onClick={()=>changeWritingMode("free")}><Icon name="code" size={14}/> 빈 화면 도전</button></div></div>
           <div><pre>{Array.from({length:Math.max(8,code.split("\n").length)},(_,i)=>`${i+1}\n`)}</pre><textarea value={code} onChange={e=>setCode(e.target.value)} spellCheck={false} aria-label="파이썬 코드 작성"/></div>
         </div>
-        <Actions back={()=>goToStep(1,"생각하기 화면으로 돌아가는 중")} backLabel="생각하기로" next={runCode} nextLabel="코드 검사하기"/>
+        <Actions back={()=>{audio.play("click");setShowLearningReview(true)}} backLabel="배운 개념 다시보기" next={runCode} nextLabel="코드 검사하기"/>
       </section>}
-      {step===3&&<section className={`stagePanel testStage ${passed?"testPassed":""}`}><div className="testContent" aria-hidden={showClear} inert={showClear}><ActivityHead icon="terminal" label="STEP 4 · 코드 검사" title="코드가 의도대로 작동하는지 확인해요" text="정답 문자열이 아니라 여러 입력값에서 계산 결과와 구조를 확인합니다."/>{passed?<div className="testCard"><div className="testTitle"><span><Icon name="check"/></span><div><small>ALL TESTS PASSED · TRY {attempts}</small><h2>작성한 코드가 모든 입력을 통과했어요</h2></div><em className={usedSolution?"assisted":"independent"}><Icon name={usedSolution||hintLevel?"light":"check"} size={14}/>{usedSolution?"전체 코드 도움 사용":hintLevel?`힌트 ${hintLevel}단계 사용`:"도움 없이 복구"}</em></div><div className="testTable"><div className="testRow head"><b>검사 항목</b><b>실행 결과</b><b>상태</b></div>{mission.tests.map(([a,b])=><div className="testRow" key={a}><b>{a}</b><span>{b}</span><i><Icon name="check" size={15}/></i></div>)}</div><div className="interpret"><Icon name="brain"/><p><b>내 코드의 동작을 다시 연결해 볼까요?</b>방금 만든 코드는 {mission.reason}</p></div><button className="moduleCommit" onClick={()=>{audio.play("clear");setShowClear(true)}}><span><Icon name="code" size={18}/></span>이 코드를 라인 코어에 결합하기 <Icon name="arrow" size={19}/></button></div>:<div className="failed"><span className="bigIcon coral"><Icon name="code"/></span><p className="kicker">REPAIR REPORT · TRY {attempts}</p><h2>정답 대신 고칠 방향을 찾아볼게요</h2><ul>{validationIssues.slice(0,3).map((issue)=><li key={issue}><Icon name="target" size={15}/><span>{issue}</span></li>)}</ul>{validationIssues.length>3&&<p className="moreIssues">먼저 표시된 세 부분을 고친 뒤 다시 검사하면 다음 진단도 확인할 수 있어요.</p>}<div className="failedActions"><button className="secondary" onClick={revealHint} disabled={hintLevel>=3}><Icon name="light" size={15}/>{hintLevel>=3?"모든 힌트 사용":`${hintLevel+1}단계 힌트 보기`}</button><button className="primary" onClick={()=>goToStep(2,"코드 편집기로 돌아가는 중")}>코드 수정하기 <Icon name="arrow"/></button></div></div>}</div>
+      {showLearningReview&&<LearningReview mission={mission} checks={learningChecks} onClose={()=>{audio.play("click");setShowLearningReview(false)}}/>}
+      {step===3&&<section className={`stagePanel testStage ${passed?"testPassed":""}`}><div className="testContent" aria-hidden={showClear} inert={showClear}><ActivityHead icon="terminal" label="STEP 4 · 코드 검사" title="코드가 의도대로 작동하는지 확인해요" text="하나의 정답 숫자가 아니라 선택한 값의 범위와 여러 입력에서의 계산 결과를 확인합니다."/>{passed?<div className="testCard"><div className="testTitle"><span><Icon name="check"/></span><div><small>ALL TESTS PASSED · TRY {attempts}</small><h2>작성한 코드가 모든 입력을 통과했어요</h2></div><em className={writingMode==="guided"?"assisted":"independent"}><Icon name={writingMode==="guided"?"book":"check"} size={14}/>{writingMode==="guided"?"주석 가이드로 작성":"빈 화면에서 작성"}</em></div><div className="testTable"><div className="testRow head"><b>검사 항목</b><b>실행 결과</b><b>상태</b></div>{testRows.map(([a,b])=><div className="testRow" key={a}><b>{a}</b><span>{b}</span><i><Icon name="check" size={15}/></i></div>)}</div><div className="interpret"><Icon name="brain"/><p><b>내 코드의 동작을 다시 연결해 볼까요?</b>방금 만든 코드는 {mission.reason}</p></div><button className="moduleCommit" onClick={()=>{audio.play("clear");setShowClear(true)}}><span><Icon name="code" size={18}/></span>이 코드를 라인 코어에 결합하기 <Icon name="arrow" size={19}/></button></div>:<div className="failed"><span className="bigIcon coral"><Icon name="code"/></span><p className="kicker">REPAIR REPORT · TRY {attempts}</p><h2>정답 대신 고칠 방향을 찾아볼게요</h2><ul>{validationIssues.slice(0,3).map((issue)=><li key={issue}><Icon name="target" size={15}/><span>{issue}</span></li>)}</ul>{validationIssues.length>3&&<p className="moreIssues">먼저 표시된 세 부분을 고친 뒤 다시 검사하면 다음 진단도 확인할 수 있어요.</p>}<div className="failedActions"><button className="primary" onClick={()=>goToStep(2,"코드 편집기로 돌아가는 중")}>코드 수정하기 <Icon name="arrow"/></button></div></div>}</div>
         {showClear&&<div className="missionClearOverlay" role="dialog" aria-modal="true" aria-labelledby="mission-clear-title">
           <div className="clearFireworks" aria-hidden="true"><i/><i/><i/></div>
           <div className="clearParticles" aria-hidden="true"><i/><i/><i/><i/><i/><i/><i/><i/></div>
@@ -768,8 +882,8 @@ export default function Home() {
               <h1 id="mission-clear-title">MISSION <b>CLEAR</b></h1>
               <p className="clearKorean">미션 클리어</p>
               <h2>{mission.recovered} 복구 완료</h2>
-              <div className="clearTestCount"><span><Icon name="terminal" size={18}/></span><div><small>TEST RESULT</small><b>{mission.tests.length} / {mission.tests.length} 통과</b></div></div>
-              <div className={`clearAssist ${usedSolution||hintLevel?"assisted":"independent"}`}><Icon name={usedSolution||hintLevel?"light":"check"} size={15}/><span>{usedSolution?"전체 코드 도움을 사용해 복구했어요":hintLevel?`힌트 ${hintLevel}단계와 함께 복구했어요`:"도움 없이 스스로 복구했어요"}</span></div>
+              <div className="clearTestCount"><span><Icon name="terminal" size={18}/></span><div><small>TEST RESULT</small><b>{testRows.length} / {testRows.length} 통과</b></div></div>
+              <div className={`clearAssist ${writingMode==="guided"?"assisted":"independent"}`}><Icon name={writingMode==="guided"?"book":"check"} size={15}/><span>{writingMode==="guided"?"역할 주석을 따라 직접 작성했어요":"가이드 없이 빈 화면에서 작성했어요"}</span></div>
               <button className="clearNext" autoFocus onClick={finishMission}><span><Icon name="play" size={18}/></span>{active===missions.length-1?"최종 결과로":"다음 단계로"}<Icon name="arrow" size={21}/></button>
             </div>
           </section>
@@ -781,6 +895,17 @@ export default function Home() {
 }
 
 function ActivityHead({icon,label,title,text}:{icon:IconName;label:string;title:string;text:string}){return <div className="activity"><span className="bigIcon"><Icon name={icon}/></span><div><p className="kicker">{label}</p><h1>{title}</h1><p>{text}</p></div></div>}
+
+function LearningReview({mission,checks,onClose}:{mission:Mission;checks:LearningCheck[];onClose:()=>void}){
+  return <div className="learningReviewOverlay" role="dialog" aria-modal="true" aria-labelledby="learning-review-title" onMouseDown={(event)=>{if(event.target===event.currentTarget)onClose()}}>
+    <section className="learningReviewPanel">
+      <header><span><Icon name="brain" size={22}/></span><div><small>LEARNING LOG</small><h2 id="learning-review-title">배운 개념을 코드와 다시 연결해요</h2></div><button onClick={onClose} aria-label="학습 노트 닫기"><Icon name="x" size={18}/></button></header>
+      <div className="lumiRecall"><img src="/assets/lumi-guide.webp" alt="배운 내용을 설명하는 루미"/><div><small>루미의 핵심 설명</small><b>{mission.speech}</b><p>{mission.conceptBrief}</p></div></div>
+      <div className="learningReviewList">{checks.map((check,index)=><article key={`${check.badge}-${index}`}><span>{String(index+1).padStart(2,"0")}</span><div><small>{check.badge}</small><h3>{check.question}</h3><p>{check.feedback}</p><code><Icon name="code" size={13}/>{check.codeClue}</code></div></article>)}</div>
+      <footer><p><Icon name="light" size={16}/>이 노트를 닫아도 작성 중인 코드는 그대로 유지됩니다.</p><button onClick={onClose}>코드 계속 작성하기 <Icon name="arrow" size={18}/></button></footer>
+    </section>
+  </div>;
+}
 
 function Actions({back,next,nextLabel,backLabel="이전",disabled=false}:{back:()=>void;next:()=>void;nextLabel:string;backLabel?:string;disabled?:boolean}){return <div className="actions"><button className="secondary" onClick={back}>{backLabel}</button><button className="primary" onClick={next} disabled={disabled}>{nextLabel}<Icon name="arrow"/></button></div>}
 
