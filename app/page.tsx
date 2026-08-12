@@ -432,12 +432,12 @@ function useGameAudio(enabled:boolean){
     if(contextRef.current.state==="suspended")void contextRef.current.resume();
     return contextRef.current;
   };
-  const tone=(context:AudioContext,frequency:number,start:number,duration:number,volume:number,type:OscillatorType="sine")=>{
+  const tone=(context:AudioContext,frequency:number,start:number,duration:number,volume:number,type:OscillatorType="sine",output:AudioNode=context.destination)=>{
     const oscillator=context.createOscillator();
     const gain=context.createGain();
     oscillator.type=type;oscillator.frequency.setValueAtTime(frequency,start);
     gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(volume,start+.018);gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
-    oscillator.connect(gain);gain.connect(context.destination);oscillator.start(start);oscillator.stop(start+duration+.03);
+    oscillator.connect(gain);gain.connect(output);oscillator.start(start);oscillator.stop(start+duration+.03);
   };
   const play=(cue:SoundCue)=>{
     if(!enabled)return;
@@ -453,17 +453,34 @@ function useGameAudio(enabled:boolean){
     const context=contextRef.current;
     if(!ready||!context)return;
     if(!enabled){void context.suspend();return;}
+    let cancelled=false;
+    const bgmBus=context.createGain();
+    const busStart=context.currentTime;
+    bgmBus.gain.setValueAtTime(.0001,busStart);
+    bgmBus.gain.linearRampToValueAtTime(1,busStart+.32);
+    bgmBus.connect(context.destination);
     void context.resume();
     const ambient=()=>{
+      if(cancelled)return;
       const start=context.currentTime+.04;
-      [174.61,196,220,246.94,220,196,174.61,196].forEach((note,index)=>{
-        tone(context,note,start+index*1.02,1.18,.012,"sine");
-        tone(context,note/2,start+index*1.02,1.22,.0035,"triangle");
+      [261.63,293.66,329.63,392,329.63,293.66,246.94,293.66].forEach((note,index)=>{
+        const noteStart=start+index*1.02;
+        tone(context,note,noteStart,1.26,.032,"sine",bgmBus);
+        tone(context,note/2,noteStart,1.3,.011,"triangle",bgmBus);
+        if(index%2===0)tone(context,note*2,noteStart+.12,.82,.006,"sine",bgmBus);
       });
     };
     ambient();
     const timer=window.setInterval(ambient,8160);
-    return ()=>window.clearInterval(timer);
+    return ()=>{
+      cancelled=true;
+      window.clearInterval(timer);
+      const stopAt=context.currentTime;
+      bgmBus.gain.cancelScheduledValues(stopAt);
+      bgmBus.gain.setValueAtTime(Math.max(.0001,bgmBus.gain.value),stopAt);
+      bgmBus.gain.linearRampToValueAtTime(.0001,stopAt+.12);
+      window.setTimeout(()=>bgmBus.disconnect(),150);
+    };
   },[enabled,ready]);
   useEffect(()=>()=>{void contextRef.current?.close()},[]);
   return {activate,play};
@@ -850,21 +867,23 @@ export default function Home() {
         </div>
       </section>}
       {step===2&&<section className="stagePanel codeStage" aria-hidden={showLearningReview} inert={showLearningReview}>
-        <ActivityHead icon="code" label="STEP 3 · 코드 작성" title={mission.codeTitle} text={mission.codeHint}/>
-        <section className="learningReason"><span><Icon name="brain" size={19}/></span><div><small>WHY THIS CODE?</small><b>왜 이 코드를 작성할까요?</b><p>{mission.reason}</p></div></section>
-        {active>0&&<div className="coreAssemblyStrip" aria-label="지금까지 복구한 코드 모듈"><small>RECOVERED CORE</small>{missions.slice(1,active+1).map((item,index)=><span key={item.recovered}><Icon name="check" size={12}/>{index+1} · {item.recovered}</span>)}<i/><b>NOW · {mission.recovered}</b></div>}
-        <section className="codeBlueprint" aria-label="이번 미션의 복구 설계도">
-          <div className="blueprintTitle"><Icon name="book" size={18}/><span><small>ROLE BLUEPRINT</small><b>코드 역할 설계도</b></span><em>정답이 아닌 작성 패턴</em></div>
-          <div className="blueprintItems">{mission.codeGuide.map(([snippet,role],index)=><article className="patternGuide" key={snippet}><small>CORE {String(index+1).padStart(2,"0")}</small><p>{role}</p><code>{mission.guidePatterns[index]}</code></article>)}</div>
-        </section>
-        <section className={`hintDock level${hintLevel}`} aria-live="polite">
-          <div><span><Icon name="light" size={17}/></span><div><small>PROGRESSIVE HINT · {hintLevel} / 3</small><b>{hintLevel===0?"막히면 작은 단서부터 열어 보세요":hintLevel===3?"전체 설계도가 열렸어요":`${hintLevel}단계 단서를 사용 중이에요`}</b></div></div>
-          {hintLevel>0&&<ol>{mission.hintLevels.slice(0,hintLevel).map((hint,index)=><li key={hint}><i>{index+1}</i><span>{hint}</span></li>)}</ol>}
-          {hintLevel<3&&<button onClick={revealHint}><Icon name="light" size={14}/>{hintLevel+1}단계 힌트 열기</button>}
-        </section>
-        <div className="editor">
-          <div className="editorTop"><span/><span/><span/><b>mission_{active+1}.py</b><em className={`writingBadge ${writingMode}`}><Icon name={writingMode==="guided"?"book":"code"} size={12}/>{writingMode==="guided"?"주석 가이드 모드":"자유 작성 모드"}</em><div className="editorTools"><button className={writingMode==="guided"?"active":""} onClick={()=>changeWritingMode("guided")}><Icon name="book" size={14}/> 주석 가이드</button><button className={writingMode==="free"?"active":""} onClick={()=>changeWritingMode("free")}><Icon name="code" size={14}/> 빈 화면 도전</button></div></div>
-          <div><pre>{Array.from({length:Math.max(8,code.split("\n").length)},(_,i)=>`${i+1}\n`)}</pre><textarea value={code} onChange={e=>setCode(e.target.value)} spellCheck={false} aria-label="파이썬 코드 작성"/></div>
+        <div className="codeStageBody" tabIndex={0} aria-label="코드 작성 내용. 내용이 화면보다 길면 이 영역을 스크롤할 수 있습니다.">
+          <ActivityHead icon="code" label="STEP 3 · 코드 작성" title={mission.codeTitle} text={mission.codeHint}/>
+          <section className="learningReason"><span><Icon name="brain" size={19}/></span><div><small>WHY THIS CODE?</small><b>왜 이 코드를 작성할까요?</b><p>{mission.reason}</p></div></section>
+          {active>0&&<div className="coreAssemblyStrip" aria-label="지금까지 복구한 코드 모듈"><small>RECOVERED CORE</small>{missions.slice(1,active+1).map((item,index)=><span key={item.recovered}><Icon name="check" size={12}/>{index+1} · {item.recovered}</span>)}<i/><b>NOW · {mission.recovered}</b></div>}
+          <section className="codeBlueprint" aria-label="이번 미션의 복구 설계도">
+            <div className="blueprintTitle"><Icon name="book" size={18}/><span><small>ROLE BLUEPRINT</small><b>코드 역할 설계도</b></span><em>정답이 아닌 작성 패턴</em></div>
+            <div className="blueprintItems">{mission.codeGuide.map(([snippet,role],index)=><article className="patternGuide" key={snippet}><small>CORE {String(index+1).padStart(2,"0")}</small><p>{role}</p><code>{mission.guidePatterns[index]}</code></article>)}</div>
+          </section>
+          <section className={`hintDock level${hintLevel}`} aria-live="polite">
+            <div><span><Icon name="light" size={17}/></span><div><small>PROGRESSIVE HINT · {hintLevel} / 3</small><b>{hintLevel===0?"막히면 작은 단서부터 열어 보세요":hintLevel===3?"전체 설계도가 열렸어요":`${hintLevel}단계 단서를 사용 중이에요`}</b></div></div>
+            {hintLevel>0&&<ol>{mission.hintLevels.slice(0,hintLevel).map((hint,index)=><li key={hint}><i>{index+1}</i><span>{hint}</span></li>)}</ol>}
+            {hintLevel<3&&<button onClick={revealHint}><Icon name="light" size={14}/>{hintLevel+1}단계 힌트 열기</button>}
+          </section>
+          <div className="editor">
+            <div className="editorTop"><span/><span/><span/><b>mission_{active+1}.py</b><em className={`writingBadge ${writingMode}`}><Icon name={writingMode==="guided"?"book":"code"} size={12}/>{writingMode==="guided"?"주석 가이드 모드":"자유 작성 모드"}</em><div className="editorTools"><button className={writingMode==="guided"?"active":""} onClick={()=>changeWritingMode("guided")}><Icon name="book" size={14}/> 주석 가이드</button><button className={writingMode==="free"?"active":""} onClick={()=>changeWritingMode("free")}><Icon name="code" size={14}/> 빈 화면 도전</button></div></div>
+            <div><pre>{Array.from({length:Math.max(8,code.split("\n").length)},(_,i)=>`${i+1}\n`)}</pre><textarea value={code} onChange={e=>setCode(e.target.value)} spellCheck={false} aria-label="파이썬 코드 작성"/></div>
+          </div>
         </div>
         <Actions back={()=>{audio.play("click");setShowLearningReview(true)}} backLabel="배운 개념 다시보기" next={runCode} nextLabel="코드 검사하기"/>
       </section>}
