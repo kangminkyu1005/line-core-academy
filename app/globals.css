@@ -314,17 +314,17 @@ button:focus-visible{outline:3px solid var(--yellow);outline-offset:3px}.gameSta
 }
 @media(prefers-reduced-motion:reduce){.learningReviewOverlay{animation:none}}
 
-/* V3: keep game chrome fixed while only overflowing code content scrolls */
-.gameViewport.stage2 .codeStage{height:calc(100% - 10px);max-height:650px}
-.codeStage{display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden}
-.codeStageBody{min-height:0;display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:#78b9ad #e2efeb;padding-right:5px;margin-right:-5px;scroll-padding-block:10px}
-.codeStageBody::-webkit-scrollbar{width:9px}.codeStageBody::-webkit-scrollbar-track{border-radius:10px;background:#e2efeb}.codeStageBody::-webkit-scrollbar-thumb{border:2px solid #e2efeb;border-radius:10px;background:#78b9ad}.codeStageBody:focus-visible{outline:2px solid var(--teal);outline-offset:-2px;border-radius:13px}
-.codeStageBody>.editor{flex:1 0 260px}
-.codeStage>.actions{position:relative;z-index:2;margin-top:8px;padding-top:9px;border-top:1px solid #cfe1dc;background:linear-gradient(180deg,#edf8f400,#edf8f4 35%)}
+/* V4: a compact, single-scroll code screen keeps the primary actions visible. */
+.gameViewport.stage2 .codeStage{height:min(650px,calc(100dvh - 102px));max-height:min(650px,calc(100dvh - 102px));justify-content:flex-start;overflow:hidden}
+.codeStage>.activity{flex:0 0 auto}
+.codeStage>.codeBlueprint{flex:0 0 auto}
+.codeStage>.editor{flex:1 1 auto;min-height:160px}
+.codeStage>.actions{position:relative;z-index:2;flex:0 0 auto;margin-top:8px;padding-top:9px;border-top:1px solid #cfe1dc;background:linear-gradient(180deg,#edf8f400,#edf8f4 35%)}
+@media(max-height:700px) and (min-width:651px){
+  .gameViewport.stage2 .codeStage{height:calc(100dvh - 76px);max-height:calc(100dvh - 76px)}
+}
 @media(max-width:650px){
-  .gameViewport.stage2 .codeStage{height:auto;max-height:none}
-  .codeStage{grid-template-rows:auto auto;overflow:visible}
-  .codeStageBody{overflow:visible;overscroll-behavior:auto;scrollbar-gutter:auto;padding-right:0;margin-right:0}
-  .codeStageBody>.editor{flex:none}
+  .gameViewport.stage2 .codeStage{height:auto;max-height:none;overflow:visible}
+  .codeStage>.editor{flex:none;min-height:0}
   .codeStage>.actions{margin-top:9px;padding-top:0;border-top:0;background:none}
 }
