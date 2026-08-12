@@ -313,3 +313,18 @@ button:focus-visible{outline:3px solid var(--yellow);outline-offset:3px}.gameSta
   .missionConditions li>b{font-size:9px!important}.questionRounds b{font-size:8px}.blueprintItems{grid-template-columns:1fr 1fr}.blueprintItems article.patternGuide code{font-size:7px}.writingBadge{display:none}.editorTop .editorTools button{font-size:7px}.learningReviewOverlay{inset:58px 0 0;padding:7px}.learningReviewPanel{border-radius:17px}.learningReviewPanel>header{min-height:60px;padding:9px 11px}.learningReviewPanel>header>span{width:36px;height:36px}.learningReviewPanel>header h2{font-size:15px}.lumiRecall{margin:9px;grid-template-columns:56px 1fr;padding:9px}.lumiRecall img{width:54px;height:62px}.lumiRecall b{font-size:10px}.lumiRecall p{font-size:8px}.learningReviewList{padding:0 9px 9px;grid-template-columns:1fr}.learningReviewList article{padding:8px}.learningReviewList h3{font-size:10px}.learningReviewList p{font-size:8px}.learningReviewList code{font-size:7px}.learningReviewPanel>footer{padding:8px 9px}.learningReviewPanel>footer p{display:none}.learningReviewPanel>footer button{width:100%;justify-content:center}
 }
 @media(prefers-reduced-motion:reduce){.learningReviewOverlay{animation:none}}
+
+/* V3: keep game chrome fixed while only overflowing code content scrolls */
+.gameViewport.stage2 .codeStage{height:calc(100% - 10px);max-height:650px}
+.codeStage{display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden}
+.codeStageBody{min-height:0;display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:#78b9ad #e2efeb;padding-right:5px;margin-right:-5px;scroll-padding-block:10px}
+.codeStageBody::-webkit-scrollbar{width:9px}.codeStageBody::-webkit-scrollbar-track{border-radius:10px;background:#e2efeb}.codeStageBody::-webkit-scrollbar-thumb{border:2px solid #e2efeb;border-radius:10px;background:#78b9ad}.codeStageBody:focus-visible{outline:2px solid var(--teal);outline-offset:-2px;border-radius:13px}
+.codeStageBody>.editor{flex:1 0 260px}
+.codeStage>.actions{position:relative;z-index:2;margin-top:8px;padding-top:9px;border-top:1px solid #cfe1dc;background:linear-gradient(180deg,#edf8f400,#edf8f4 35%)}
+@media(max-width:650px){
+  .gameViewport.stage2 .codeStage{height:auto;max-height:none}
+  .codeStage{grid-template-rows:auto auto;overflow:visible}
+  .codeStageBody{overflow:visible;overscroll-behavior:auto;scrollbar-gutter:auto;padding-right:0;margin-right:0}
+  .codeStageBody>.editor{flex:none}
+  .codeStage>.actions{margin-top:9px;padding-top:0;border-top:0;background:none}
+}
