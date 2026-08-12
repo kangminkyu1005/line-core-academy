@@ -578,7 +578,6 @@ export default function Home() {
   const [showClear,setShowClear] = useState(false);
   const [validationIssues,setValidationIssues] = useState<string[]>([]);
   const [attempts,setAttempts] = useState(0);
-  const [hintLevel,setHintLevel] = useState(0);
   const [studentCodes,setStudentCodes] = useState(()=>missions.map((item)=>item.starter));
   const [assistHistory,setAssistHistory] = useState(()=>missions.map(()=>({hintLevel:0,usedSolution:false,attempts:0})));
   const [dialogueIndex,setDialogueIndex] = useState(0);
@@ -665,7 +664,7 @@ export default function Home() {
   function openMission(id:number,codes=studentCodes,assists=assistHistory){
     const assist=assists[id]??{hintLevel:0,usedSolution:false,attempts:0};
     const savedCode=codes[id]||missions[id].starter;
-    setActive(id);setStep(0);setQuestionRound(0);setChoice(null);setChecked(false);setCode(savedCode);setPassed(false);setShowClear(false);setShowLearningReview(false);setValidationIssues([]);setAttempts(assist.attempts);setHintLevel(assist.hintLevel);setWritingMode(savedCode.includes("#")?"guided":"free");setDialogueIndex(0);setDialogueDone(false);setDialogueInstant(false);setBriefingReady(false);setScreen("mission");
+    setActive(id);setStep(0);setQuestionRound(0);setChoice(null);setChecked(false);setCode(savedCode);setPassed(false);setShowClear(false);setShowLearningReview(false);setValidationIssues([]);setAttempts(assist.attempts);setWritingMode(savedCode.includes("#")?"guided":"free");setDialogueIndex(0);setDialogueDone(false);setDialogueInstant(false);setBriefingReady(false);setScreen("mission");
   }
   function startGame(){
     audio.activate();audio.play("click");
@@ -694,13 +693,6 @@ export default function Home() {
     audio.play("click");
     if(meaningful)transition(()=>setStep(next),message,360);else setStep(next);
   }
-  function revealHint(){
-    audio.play("click");
-    const next=Math.min(3,hintLevel+1);
-    setHintLevel(next);
-    const nextAssist=assistHistory.map((item,index)=>index===active?{...item,hintLevel:Math.max(item.hintLevel,next)}:item);
-    persistLearning(studentCodes,nextAssist);
-  }
   function changeWritingMode(next:"guided"|"free"){
     if(next===writingMode)return;
     const hasStudentWork=code.trim()&&code.trim()!==mission.starter.trim();
@@ -711,7 +703,7 @@ export default function Home() {
     const nextAttempt=attempts+1;
     const result=validate(active,code,nextAttempt);
     const nextCodes=studentCodes.map((item,index)=>index===active?code:item);
-    const nextAssist=assistHistory.map((item,index)=>index===active?{...item,hintLevel,usedSolution:false,attempts:nextAttempt}:item);
+    const nextAssist=assistHistory.map((item,index)=>index===active?{...item,usedSolution:false,attempts:nextAttempt}:item);
     persistLearning(nextCodes,nextAssist);setAttempts(nextAttempt);setPassed(result.passed);setShowClear(false);setValidationIssues(Array.from(new Set(result.missing)));
     audio.play(result.passed?"correct":"wrong");setStep(3);
   }
@@ -867,23 +859,14 @@ export default function Home() {
         </div>
       </section>}
       {step===2&&<section className="stagePanel codeStage" aria-hidden={showLearningReview} inert={showLearningReview}>
-        <div className="codeStageBody" tabIndex={0} aria-label="코드 작성 내용. 내용이 화면보다 길면 이 영역을 스크롤할 수 있습니다.">
-          <ActivityHead icon="code" label="STEP 3 · 코드 작성" title={mission.codeTitle} text={mission.codeHint}/>
-          <section className="learningReason"><span><Icon name="brain" size={19}/></span><div><small>WHY THIS CODE?</small><b>왜 이 코드를 작성할까요?</b><p>{mission.reason}</p></div></section>
-          {active>0&&<div className="coreAssemblyStrip" aria-label="지금까지 복구한 코드 모듈"><small>RECOVERED CORE</small>{missions.slice(1,active+1).map((item,index)=><span key={item.recovered}><Icon name="check" size={12}/>{index+1} · {item.recovered}</span>)}<i/><b>NOW · {mission.recovered}</b></div>}
-          <section className="codeBlueprint" aria-label="이번 미션의 복구 설계도">
-            <div className="blueprintTitle"><Icon name="book" size={18}/><span><small>ROLE BLUEPRINT</small><b>코드 역할 설계도</b></span><em>정답이 아닌 작성 패턴</em></div>
-            <div className="blueprintItems">{mission.codeGuide.map(([snippet,role],index)=><article className="patternGuide" key={snippet}><small>CORE {String(index+1).padStart(2,"0")}</small><p>{role}</p><code>{mission.guidePatterns[index]}</code></article>)}</div>
-          </section>
-          <section className={`hintDock level${hintLevel}`} aria-live="polite">
-            <div><span><Icon name="light" size={17}/></span><div><small>PROGRESSIVE HINT · {hintLevel} / 3</small><b>{hintLevel===0?"막히면 작은 단서부터 열어 보세요":hintLevel===3?"전체 설계도가 열렸어요":`${hintLevel}단계 단서를 사용 중이에요`}</b></div></div>
-            {hintLevel>0&&<ol>{mission.hintLevels.slice(0,hintLevel).map((hint,index)=><li key={hint}><i>{index+1}</i><span>{hint}</span></li>)}</ol>}
-            {hintLevel<3&&<button onClick={revealHint}><Icon name="light" size={14}/>{hintLevel+1}단계 힌트 열기</button>}
-          </section>
-          <div className="editor">
-            <div className="editorTop"><span/><span/><span/><b>mission_{active+1}.py</b><em className={`writingBadge ${writingMode}`}><Icon name={writingMode==="guided"?"book":"code"} size={12}/>{writingMode==="guided"?"주석 가이드 모드":"자유 작성 모드"}</em><div className="editorTools"><button className={writingMode==="guided"?"active":""} onClick={()=>changeWritingMode("guided")}><Icon name="book" size={14}/> 주석 가이드</button><button className={writingMode==="free"?"active":""} onClick={()=>changeWritingMode("free")}><Icon name="code" size={14}/> 빈 화면 도전</button></div></div>
-            <div><pre>{Array.from({length:Math.max(8,code.split("\n").length)},(_,i)=>`${i+1}\n`)}</pre><textarea value={code} onChange={e=>setCode(e.target.value)} spellCheck={false} aria-label="파이썬 코드 작성"/></div>
-          </div>
+        <ActivityHead icon="code" label="STEP 3 · 코드 작성" title={mission.codeTitle} text={mission.codeHint}/>
+        <section className="codeBlueprint" aria-label="이번 미션의 복구 설계도">
+          <div className="blueprintTitle"><Icon name="book" size={18}/><span><small>ROLE BLUEPRINT</small><b>코드 역할 설계도</b></span><em>정답이 아닌 작성 패턴</em></div>
+          <div className="blueprintItems">{mission.codeGuide.map(([snippet,role],index)=><article className="patternGuide" key={snippet}><small>CORE {String(index+1).padStart(2,"0")}</small><p>{role}</p><code>{mission.guidePatterns[index]}</code></article>)}</div>
+        </section>
+        <div className="editor">
+          <div className="editorTop"><span/><span/><span/><b>mission_{active+1}.py</b><em className={`writingBadge ${writingMode}`}><Icon name={writingMode==="guided"?"book":"code"} size={12}/>{writingMode==="guided"?"주석 가이드 모드":"자유 작성 모드"}</em><div className="editorTools"><button className={writingMode==="guided"?"active":""} onClick={()=>changeWritingMode("guided")}><Icon name="book" size={14}/> 주석 가이드</button><button className={writingMode==="free"?"active":""} onClick={()=>changeWritingMode("free")}><Icon name="code" size={14}/> 빈 화면 도전</button></div></div>
+          <div><pre>{Array.from({length:Math.max(8,code.split("\n").length)},(_,i)=>`${i+1}\n`)}</pre><textarea value={code} onChange={e=>setCode(e.target.value)} spellCheck={false} aria-label="파이썬 코드 작성"/></div>
         </div>
         <Actions back={()=>{audio.play("click");setShowLearningReview(true)}} backLabel="배운 개념 다시보기" next={runCode} nextLabel="코드 검사하기"/>
       </section>}
