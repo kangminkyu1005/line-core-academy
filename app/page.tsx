@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { assignmentExpression, expressionValue, validateCode as validate } from "./code-validation.js";
+import { finalQuizQuestions, glossaryTopics } from "./learning-content";
 
 type IconName = "arrow" | "book" | "brain" | "check" | "code" | "light" | "lock" | "map" | "mute" | "play" | "sound" | "target" | "terminal" | "user" | "x";
 
@@ -11,6 +13,13 @@ type LearningCheck = {
   answer: number;
   feedback: string;
   codeClue: string;
+};
+
+type GradingGuide = {
+  exact: string[];
+  sequence: string[];
+  rule: string;
+  freedom?: string;
 };
 
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -42,6 +51,7 @@ type Mission = {
   whyQuestion: string; whyOptions: string[]; whyAnswer: number; whyFeedback: string;
   conceptChecks: LearningCheck[];
   hintLevels: [string, string, string];
+  gradingGuide: GradingGuide;
   codeHint: string; codeGuide: Array<[string, string]>; guidePatterns: string[]; starter: string; solution: string; recovered: string;
   tests: Array<[string, string]>;
 };
@@ -73,11 +83,17 @@ const missions: Mission[] = [
       {badge:"CONTROL LOOP",question:"경계선을 계속 따라가기 위한 올바른 처리 순서는 무엇일까요?",options:["센서 확인 → 오차 계산 → 방향 보정 → 반복", "방향 보정 → 센서 확인 → 정지 → 반복", "속도 증가 → 함수 종료 → 센서 확인", "오차 계산 → 전원 종료 → 반복"],answer:0,feedback:"현재 반사광을 읽고 기준값과의 오차를 계산한 다음 모터를 보정하는 과정을 반복합니다.",codeClue:"처리 순서를 네 줄의 파이썬 주석으로 먼저 설계해 보세요."},
     ],
     hint: "검정과 흰색이 만나는 지점에서는 센서값이 두 반사광의 중간에 가까워집니다.",
-    codeTitle: "처리 과정을 파이썬 주석으로 기록하세요.", codeHint: "각 단계의 역할을 떠올려 네 줄의 주석을 완성해 보세요.",
+    codeTitle: "처리 과정을 파이썬 주석으로 기록하세요.", codeHint: "미션 키워드에 제시된 네 역할 이름을 같은 순서로 주석에 작성하세요.",
     hintLevels: ["현재 상태를 먼저 확인한 뒤 기준과의 차이를 계산해요.", "차이를 계산한 다음 좌우 모터를 다르게 보정해요.", "마지막 단계는 멈춤이 아니라 같은 판단을 다시 수행하는 것입니다."],
+    gradingGuide: {
+      exact: ["# 센서 확인", "# 오차 계산", "# 방향 보정", "# 반복"],
+      sequence: ["센서 확인", "오차 계산", "방향 보정", "반복"],
+      rule: "각 줄은 #으로 시작하고, 네 역할 이름은 미션 키워드와 같게 작성해요.",
+      freedom: "설명 주석이나 빈 줄을 더 넣어도 괜찮아요.",
+    },
     codeGuide: [["# 센서 확인", "현재 센서값을 먼저 읽어요."], ["# 오차 계산", "기준값과 센서값의 차이를 구해요."], ["# 방향 보정", "오차에 맞게 방향을 바꿔요."], ["# 반복", "이 과정을 계속 되풀이해요."]],
     guidePatterns: ["# 첫 번째 과정", "# 두 번째 과정", "# 세 번째 과정", "# 다시 수행할 과정"],
-    starter: "# 현재 반사광을 읽는 과정\n\n# 기준값과 현재값의 차이를 구하는 과정\n\n# 좌우 모터의 방향을 바꾸는 과정\n\n# 위 과정을 계속 수행하는 과정\n", solution: "# 센서 확인\n# 오차 계산\n# 방향 보정\n# 반복",
+    starter: "# 현재 반사광을 읽는 과정 (아래의 코드 입력)\n\n# 기준값과 현재값의 차이를 구하는 과정 (아래의 코드 입력)\n\n# 좌우 모터의 방향을 바꾸는 과정 (아래의 코드 입력)\n\n# 위 과정을 계속 수행하는 과정 (아래의 코드 입력)\n", solution: "# 센서 확인\n# 오차 계산\n# 방향 보정\n# 반복",
     recovered: "라인팔로잉 처리 순서", tests: [["첫 과정", "센서 확인"], ["중간 과정", "오차 계산 · 방향 보정"], ["마지막 과정", "반복"]],
   },
   {
@@ -98,11 +114,17 @@ const missions: Mission[] = [
       {badge:"D GAIN",question:"kd의 주된 역할은 무엇일까요?",options:["오차가 빠르게 변할 때 추가로 반응해 흔들림을 줄인다", "로봇의 기본 속도를 저장한다", "검정과 흰색의 평균을 구한다", "함수 이름을 만든다"],answer:0,feedback:"Kd는 현재 오차의 크기보다 오차가 변하는 속도에 반응합니다.",codeClue:"kd는 0 이상으로 선택할 수 있고, 0이면 P 제어만 사용하는 상태가 됩니다."},
     ],
     hint: "변수 이름은 값의 역할을 드러내야 합니다. 따라가려는 목표값을 뜻하는 이름을 찾아보세요.",
-    codeTitle: "측정값과 제어 변수를 직접 선언하세요.", codeHint: "퀴즈에서 익힌 역할을 주석으로 확인하며 값을 선택하세요. target은 숫자를 외우지 말고 두 반사광의 평균식으로 작성합니다.",
+    codeTitle: "측정값과 제어 변수를 직접 선언하세요.", codeHint: "변수 이름은 미션 키워드와 같게 쓰고, 숫자는 조건 안에서 직접 선택하세요. target은 두 반사광 변수의 평균식으로 작성합니다.",
     hintLevels: ["변수는 이름 = 값 형태로 선언하며 오른쪽에는 숫자나 계산식이 올 수 있어요.", "검정 반사광은 흰색보다 작아야 하고 target은 두 값 사이에 있어야 해요.", "target에는 black_value와 white_value를 더한 뒤 2로 나누는 식이 필요해요."],
+    gradingGuide: {
+      exact: ["black_value", "white_value", "base_speed", "target", "kp", "kd"],
+      sequence: ["반사광 측정", "기본 속도", "기준값", "Kp", "Kd"],
+      rule: "black_value < white_value, base_speed는 1~100, kp는 0보다 크게, kd는 0 이상으로 정해요. target은 두 측정 변수의 평균식이어야 해요.",
+      freedom: "숫자는 하나의 정답이 아니며 허용 범위 안에서 직접 선택할 수 있어요.",
+    },
     codeGuide: [["black_value = 20", "검정 바닥에서 측정한 반사광"], ["white_value = 80", "흰 바닥에서 측정한 반사광"], ["base_speed = 60", "직진할 때의 기본 속도"], ["target = (black_value + white_value) / 2", "경계를 판단하는 센서 기준값"], ["kp = 0.8", "현재 오차에 반응하는 힘"], ["kd = 0.3", "급격한 흔들림을 줄이는 힘"]],
     guidePatterns: ["black_value = 측정값", "white_value = 측정값", "base_speed = 안전한 속도", "target = (검정값 + 흰색값) / 2", "kp = P 조절값", "kd = D 조절값"],
-    starter: "# 검정 바닥에서 측정한 반사광을 저장해요 (0~100)\nblack_value = \n\n# 흰 바닥에서 측정한 반사광을 저장해요 (검정보다 큰 값)\nwhite_value = \n\n# 보정이 없을 때의 기본 속도를 정해요 (1~100)\nbase_speed = \n\n# 검정과 흰색의 경계값을 평균식으로 계산해요\ntarget = \n\n# 현재 오차와 오차 변화에 반응할 정도를 정해요\nkp = \nkd = ", solution: "black_value = 20\nwhite_value = 80\nbase_speed = 60\ntarget = (black_value + white_value) / 2\nkp = 0.8\nkd = 0.3",
+    starter: "# 검정 바닥에서 측정한 반사광을 저장해요 (0~100) (아래의 코드 입력)\nblack_value = \n\n# 흰 바닥에서 측정한 반사광을 저장해요 (검정보다 큰 값) (아래의 코드 입력)\nwhite_value = \n\n# 보정이 없을 때의 기본 속도를 정해요 (1~100) (아래의 코드 입력)\nbase_speed = \n\n# 검정과 흰색의 경계값을 평균식으로 계산해요 (아래의 코드 입력)\ntarget = \n\n# 현재 오차와 오차 변화에 반응할 정도를 정해요 (아래의 코드 입력)\nkp = \nkd = ", solution: "black_value = 20\nwhite_value = 80\nbase_speed = 60\ntarget = (black_value + white_value) / 2\nkp = 0.8\nkd = 0.3",
     recovered: "속도와 제어 변수", tests: [["반사광 측정", "검정 < 흰색"], ["기준값", "두 반사광의 평균"], ["기본 속도", "1~100"], ["제어 계수", "Kp > 0 · Kd ≥ 0"]],
   },
   {
@@ -123,11 +145,17 @@ const missions: Mission[] = [
       {badge:"LOOP",question:"라인을 따라가는 동안 판단 과정을 계속 반복하는 파이썬 구조는 무엇일까요?",options:["while True:", "if False:", "return", "print()"],answer:0,feedback:"while True는 조건이 참인 동안 내부 코드를 반복합니다. 실제 로봇에서는 정지 조건과 안전장치를 함께 사용합니다.",codeClue:"while True: 다음 줄부터 센서 읽기 코드를 한 단계 더 들여써요."},
     ],
     hint: "새로운 함수의 시작을 알리는 두 글자 키워드를 찾아보세요.",
-    codeTitle: "line_follow 함수의 틀을 완성하세요.", codeHint: "아래 이름은 다음 미션이 연결되는 약속입니다. 대소문자와 밑줄까지 설계도와 같게 입력해 주세요.",
+    codeTitle: "line_follow 함수의 틀을 완성하세요.", codeHint: "이번 미션에서는 다음 단계와 연결하기 위해 정해진 이름과 매개변수 순서를 사용합니다. 미션 키워드를 확인해 조합하세요.",
     hintLevels: ["함수는 def로 시작하고 이름 뒤 괄호 안에 전달받을 값을 적어요.", "함수 안의 코드는 4칸, while 안의 코드는 8칸 들여써요.", "센서 읽기 명령의 반환값을 sensor_value라는 변수에 저장해야 해요."],
+    gradingGuide: {
+      exact: ["line_follow", "base_speed", "target", "kp", "kd", "previous_error", "sensor_value", "color_sensor.reflection()"],
+      sequence: ["함수 정의", "이전 오차 0", "반복 시작", "센서값 저장"],
+      rule: "매개변수는 base_speed, target, kp, kd 순서로 적어요. def와 while 줄 끝에는 :을 쓰고, 함수 안은 4칸·while 안은 8칸 들여써요.",
+      freedom: "이 이름과 순서는 파이썬의 절대 규칙이 아니라 이번 미션의 연결·채점 약속이에요.",
+    },
     codeGuide: [["def line_follow(base_speed, target, kp, kd):", "네 값을 전달받는 함수의 시작"], ["previous_error = 0", "아직 이전 오차가 없으므로 0에서 시작"], ["while True:", "센서 확인과 보정을 계속 반복"], ["color_sensor.reflection()", "센서의 반사광 값을 읽는 명령"]],
     guidePatterns: ["def 함수이름(전달값):", "previous_error = 시작값", "while 반복조건:", "sensor_value = 센서 읽기"],
-    starter: "# 네 설정값을 전달받는 line_follow 함수를 정의해요\n\n# 함수 안에서 이전 오차를 0으로 준비해요\n\n# 센서 확인과 보정을 계속 반복해요\n\n# 반복문 안에서 현재 반사광을 sensor_value에 저장해요\n",
+    starter: "# 네 설정값을 전달받는 line_follow 함수를 정의해요 (아래의 코드 입력)\n\n# 함수 안에서 이전 오차를 0으로 준비해요 (아래의 코드 입력)\n\n# 센서 확인과 보정을 계속 반복해요 (아래의 코드 입력)\n\n# 반복문 안에서 현재 반사광을 sensor_value에 저장해요 (아래의 코드 입력)\n",
     solution: "def line_follow(base_speed, target, kp, kd):\n    previous_error = 0\n\n    while True:\n        sensor_value = color_sensor.reflection()",
     recovered: "함수와 반복 구조", tests: [["함수 이름", "line_follow"], ["이전 오차", "0"], ["센서 읽기", "reflection()"]],
   },
@@ -149,11 +177,17 @@ const missions: Mission[] = [
       {badge:"P RESPONSE",question:"같은 kp에서 error가 5에서 10으로 커지면 p_control은 어떻게 될까요?",options:["두 배로 커진다", "절반으로 줄어든다", "변하지 않는다", "항상 음수가 된다"],answer:0,feedback:"P는 비례 제어입니다. 같은 Kp에서는 오차가 두 배가 되면 P 보정도 두 배가 됩니다.",codeClue:"p_control에는 kp와 error를 곱한 결과를 저장해요."},
     ],
     hint: "error = target - sensor_value 순서로 50에서 40을 빼 보세요.",
-    codeTitle: "오차와 P 제어 코드를 작성하세요.", codeHint: "설계도에 있는 변수 이름은 앞 단계와 연결됩니다. 식의 왼쪽과 오른쪽을 그대로 확인해 보세요.",
+    codeTitle: "오차와 P 제어 코드를 작성하세요.", codeHint: "미션 키워드의 정확한 변수 이름을 사용해, 기준값과 현재값의 차이를 P 반응으로 연결하세요.",
     hintLevels: ["오차는 목표값과 현재값의 차이이며 뺄셈 순서가 방향을 결정해요.", "P는 proportional의 약자로 현재 오차에 비례해요.", "p_control의 오른쪽에는 P 계수와 현재 오차가 모두 필요해요."],
+    gradingGuide: {
+      exact: ["error", "target", "sensor_value", "p_control", "kp"],
+      sequence: ["오차 계산", "P 반응 계산"],
+      rule: "error에는 target에서 sensor_value를 뺀 결과를 저장하고, p_control에는 kp와 error를 곱한 결과를 저장해요. 파이썬 곱셈 기호는 *예요.",
+      freedom: "같은 계산 결과를 만드는 괄호와 띄어쓰기 차이는 허용돼요.",
+    },
     codeGuide: [["error = target - sensor_value", "목표값에서 현재 센서값을 빼요."], ["p_control = kp * error", "현재 오차에 Kp를 곱해 반응 크기를 정해요."]],
     guidePatterns: ["error = 기준값 - 현재 센서값", "p_control = P 계수 × 현재 오차"],
-    starter: "# 경계 기준값과 현재 반사광의 차이를 error에 저장해요\n\n# 현재 오차에 Kp를 적용해 P 보정값을 만들어요\n", solution: "error = target - sensor_value\np_control = kp * error",
+    starter: "# 경계 기준값과 현재 반사광의 차이를 error에 저장해요 (아래의 코드 입력)\n\n# 현재 오차에 Kp를 적용해 P 보정값을 만들어요 (아래의 코드 입력)\n", solution: "error = target - sensor_value\np_control = kp * error",
     recovered: "오차와 P 제어", tests: [["센서 40", "error 10"], ["센서 50", "error 0"], ["센서 65", "error -15"]],
   },
   {
@@ -170,15 +204,21 @@ const missions: Mission[] = [
     whyFeedback: "D 제어는 현재 위치만 보지 않고 오차가 얼마나 빠르게 변하는지도 봅니다. 급격한 방향 변화를 일찍 감지할 수 있어요.",
     conceptChecks: [
       {badge:"TWO ERRORS",question:"현재 오차와 이전 오차를 모두 기억해야 하는 이유는 무엇일까요?",options:["두 값의 차이로 오차가 얼마나 변했는지 구하기 위해", "두 오차를 항상 같은 값으로 만들기 위해", "기본 속도를 두 배로 만들기 위해", "센서 읽기를 멈추기 위해"],answer:0,feedback:"현재값과 직전값이 있어야 시간에 따른 변화량을 계산할 수 있습니다.",codeClue:"change는 현재 error에서 previous_error를 뺀 값이에요."},
-      {badge:"D RESPONSE",question:"change의 절댓값이 클다는 것은 어떤 뜻일까요?",options:["오차가 짧은 시간에 빠르게 변하고 있다", "로봇이 반드시 정지했다", "기준값이 잘못 저장됐다", "현재 오차가 항상 0이다"],answer:0,feedback:"변화량이 크면 로봇이 경계를 빠르게 지나치거나 방향을 급하게 바꾸는 중일 수 있습니다.",codeClue:"d_control은 변화량 change에 kd를 곱해 만들어요."},
+      {badge:"D RESPONSE",question:"change가 6이고 kd가 0.5라면 d_control은 얼마일까요?",options:["3", "6.5", "5.5", "12"],answer:0,feedback:"d_control = kd × change이므로 0.5 × 6 = 3입니다. kd는 로봇 상태에 따라 조절하는 값이며, 0.5가 절대적인 정답 설정은 아닙니다.",codeClue:"d_control에는 kd와 change를 곱한 결과를 저장해요."},
       {badge:"UPDATE TIMING",question:"previous_error = error는 언제 실행해야 할까요?",options:["현재 반복의 P와 D 계산을 모두 마친 뒤", "현재 error를 계산하기 전", "함수를 정의하기 전", "센서를 읽지 않을 때만"],answer:0,feedback:"D 계산이 끝난 뒤 현재 오차를 저장해야 다음 반복에서 ‘이전 오차’로 사용할 수 있습니다.",codeClue:"이번 장에서는 두 오차를 비교하고, 최종장에서 계산이 끝난 뒤 previous_error를 갱신해요."},
     ],
     hint: "change는 현재 오차에서 이전 오차를 뺀 값입니다. 8 - 3을 계산해 보세요.",
-    codeTitle: "변화량과 D 제어 코드를 작성하세요.", codeHint: "현재 오차와 직전 오차를 먼저 비교한 다음, 변화량에 Kd를 곱합니다.",
+    codeTitle: "변화량과 D 제어 코드를 작성하세요.", codeHint: "미션 키워드의 정확한 변수 이름을 사용해 현재 오차와 직전 오차의 변화를 D 반응으로 연결하세요.",
     hintLevels: ["변화량은 현재 오차와 직전 오차의 차이예요.", "뺄셈의 앞에는 현재값, 뒤에는 이전값이 와요.", "D 제어값에는 D 계수와 방금 구한 변화량이 모두 필요해요."],
+    gradingGuide: {
+      exact: ["change", "error", "previous_error", "d_control", "kd"],
+      sequence: ["변화량 계산", "D 반응 계산"],
+      rule: "change에는 error에서 previous_error를 뺀 결과를 저장하고, d_control에는 kd와 change를 곱한 결과를 저장해요.",
+      freedom: "같은 계산 결과를 만드는 괄호와 띄어쓰기 차이는 허용돼요.",
+    },
     codeGuide: [["change = error - previous_error", "현재 오차가 직전보다 얼마나 변했는지 계산"], ["d_control = kd * change", "변화가 클수록 더 빠르게 균형을 잡아요."]],
     guidePatterns: ["change = 현재 오차 - 이전 오차", "d_control = D 계수 × 변화량"],
-    starter: "# 현재 오차와 직전 오차의 차이를 change에 저장해요\n\n# 오차 변화량에 Kd를 적용해 D 보정값을 만들어요\n", solution: "change = error - previous_error\nd_control = kd * change",
+    starter: "# 현재 오차와 직전 오차의 차이를 change에 저장해요 (아래의 코드 입력)\n\n# 오차 변화량에 Kd를 적용해 D 보정값을 만들어요 (아래의 코드 입력)\n", solution: "change = error - previous_error\nd_control = kd * change",
     recovered: "변화량과 D 제어", tests: [["8과 3 비교", "change 5"], ["-2와 4 비교", "change -6"], ["변화 없음", "change 0"]],
   },
   {
@@ -199,160 +239,38 @@ const missions: Mission[] = [
       {badge:"NEXT LOOP",question:"현재 반복이 끝난 뒤 error를 previous_error에 저장하는 이유는 무엇일까요?",options:["다음 반복에서 오차 변화량을 계산하기 위해", "기준값을 지우기 위해", "두 모터를 같은 속도로 만들기 위해", "while 반복을 종료하기 위해"],answer:0,feedback:"이번 error는 다음 반복에서 직전 error가 됩니다. 그래야 새로운 change를 계산할 수 있어요.",codeClue:"모터 출력까지 계산한 마지막에 previous_error = error를 작성해요."},
     ],
     hint: "방향을 바꾸려면 좌우 출력에 서로 반대되는 보정이 적용되어야 합니다.",
-    codeTitle: "line_follow 함수의 마지막 부분을 완성하세요.", codeHint: "보정값을 좌우 출력에 반대로 적용한 뒤, 이번 오차를 다음 반복을 위해 저장합니다.",
+    codeTitle: "line_follow 함수의 마지막 부분을 완성하세요.", codeHint: "미션 키워드의 이름과 작성 순서에 맞춰 P·D 반응을 좌우 모터 출력으로 연결하세요.",
     hintLevels: ["P와 D의 반응을 하나의 correction으로 합쳐요.", "방향을 바꾸려면 좌우 모터 출력 사이에 속도 차이가 필요해요.", "현재 반복의 모든 계산이 끝난 뒤 error를 다음 반복을 위해 기억해요."],
+    gradingGuide: {
+      exact: ["correction", "p_control", "d_control", "left_power", "right_power", "base_speed", "left_motor.dc(left_power)", "right_motor.dc(right_power)", "previous_error", "error"],
+      sequence: ["P·D 결합", "좌우 출력", "모터 전달", "이전 오차 저장"],
+      rule: "correction은 P와 D를 더해 만들어요. 왼쪽은 기본 속도에 더하고 오른쪽은 빼며, 모터 전달 뒤 previous_error에 error를 저장해요.",
+      freedom: "계산식의 괄호와 띄어쓰기는 달라도 되지만 모터와 변수 이름은 미션 키워드와 같아야 해요.",
+    },
     codeGuide: [["correction = p_control + d_control", "P와 D 반응을 하나의 보정값으로 합쳐요."], ["left_power = base_speed + correction", "왼쪽 출력에는 보정값을 더해요."], ["right_power = base_speed - correction", "오른쪽 출력에는 보정값을 빼요."], ["previous_error = error", "이번 오차를 다음 반복의 이전 오차로 저장"]],
     guidePatterns: ["correction = P 반응 + D 반응", "left_power = 기본 속도 + 보정값", "right_power = 기본 속도 - 보정값", "previous_error = 현재 오차"],
-    starter: "# P와 D의 반응을 correction으로 합쳐요\n\n# 같은 보정값을 좌우 기본 속도에 반대 부호로 적용해요\n\n# 계산한 출력을 실제 좌우 모터에 전달해요\nleft_motor.dc(left_power)\nright_motor.dc(right_power)\n\n# 이번 오차를 다음 반복의 이전 오차로 저장해요\n",
+    starter: "# P와 D의 반응을 correction으로 합쳐요 (아래의 코드 입력)\n\n# 같은 보정값을 좌우 기본 속도에 반대 부호로 적용해요 (아래의 코드 입력)\n\n# 계산한 출력을 실제 좌우 모터에 전달해요 (아래의 코드 입력)\n\n# 이번 오차를 다음 반복의 이전 오차로 저장해요 (아래의 코드 입력)\n",
     solution: "correction = p_control + d_control\nleft_power = base_speed + correction\nright_power = base_speed - correction\n\nleft_motor.dc(left_power)\nright_motor.dc(right_power)\n\nprevious_error = error",
     recovered: "완성된 line_follow 함수", tests: [["PD 결합", "P + D"], ["왼쪽 출력", "속도 + 보정"], ["오른쪽 출력", "속도 - 보정"]],
   },
 ];
 
-type ValidationResult = { passed: boolean; missing: string[] };
+const ENTRY_PROMPT = " (아래의 코드 입력)";
 
-function expressionValue(expression: string, variables: Record<string, number>): number | null {
-  const tokens = expression.match(/\d+(?:\.\d+)?|[A-Za-z_]\w*|[()+\-*/]/g);
-  if(!tokens || tokens.join("")!==expression.replace(/\s+/g,""))return null;
-  const parsedTokens=tokens;
-  let cursor=0;
-  const parsePrimary=():number|null=>{
-    const token=parsedTokens[cursor++];
-    if(token===undefined)return null;
-    if(token==="("){
-      const value=parseAdditive();
-      if(parsedTokens[cursor++]!==")")return null;
-      return value;
-    }
-    if(token==="-"){
-      const value=parsePrimary();
-      return value===null?null:-value;
-    }
-    if(/^\d/.test(token))return Number(token);
-    return Object.prototype.hasOwnProperty.call(variables,token)?variables[token]:null;
-  };
-  const parseMultiplicative=():number|null=>{
-    let value=parsePrimary();
-    while(parsedTokens[cursor]==="*"||parsedTokens[cursor]==="/"){
-      const operator=parsedTokens[cursor++];
-      const right=parsePrimary();
-      if(value===null||right===null)return null;
-      if(operator==="/"&&right===0)return null;
-      value=operator==="*"?value*right:value/right;
-    }
-    return value;
-  };
-  function parseAdditive():number|null{
-    let value=parseMultiplicative();
-    while(parsedTokens[cursor]==="+"||parsedTokens[cursor]==="-"){
-      const operator=parsedTokens[cursor++];
-      const right=parseMultiplicative();
-      if(value===null||right===null)return null;
-      value=operator==="+"?value+right:value-right;
-    }
-    return value;
-  }
-  const value=parseAdditive();
-  return cursor===parsedTokens.length?value:null;
-}
-
-function assignmentExpression(code:string,name:string){
-  return code.match(new RegExp(`^\\s*${name}\\s*=\\s*([^#\\n]+)`,"m"))?.[1]?.trim()??null;
-}
-
-function expressionMatches(expression:string|null,expected:(values:Record<string,number>)=>number,samples:Record<string,number>[]){
-  if(!expression)return false;
-  return samples.every((values)=>{
-    const actual=expressionValue(expression,values);
-    return actual!==null&&Math.abs(actual-expected(values))<1e-8;
-  });
-}
-
-function diagnoseExpression(
-  code:string,
-  name:string,
-  label:string,
-  expected:(values:Record<string,number>)=>number,
-  samples:Record<string,number>[],
-  attempt:number,
-  targeted:string,
-){
-  const expression=assignmentExpression(code,name);
-  if(!expression)return `${label}: ${name}에 계산 결과를 저장했는지 확인해 보세요.`;
-  if(expressionValue(expression,samples[0])===null)return `${label}: 변수 이름의 철자와 괄호가 올바른지 살펴보세요.`;
-  return attempt>1?`${label}: ${targeted}`:`${label}: 사용한 연산자와 값의 순서를 다시 생각해 보세요.`;
-}
-
-function validate(id: number, code: string, attempt=1): ValidationResult {
-  const executable = code.split("\n").filter((line)=>!line.trimStart().startsWith("#")).join("\n");
-  const compact = executable.replace(/\s+/g, "");
-  const has = (snippet:string)=>compact.includes(snippet.replace(/\s+/g, ""));
-  if(id===0){
-    const expected=["센서 확인","오차 계산","방향 보정","반복"];
-    const comments=code.split("\n").map((line)=>line.match(/^\s*#\s*(.+?)\s*$/)?.[1]??"").filter(Boolean);
-    const positions=expected.map((label)=>comments.findIndex((comment)=>comment===label));
-    const inOrder=positions.every((position,index)=>position>=0&&(index===0||position>positions[index-1]));
-    const missing=inOrder?[]:[attempt>1?"센서 확인 → 오차 계산 → 방향 보정 → 반복 순서로 네 역할 주석을 추가해 보세요.":"가이드 주석 아래에 네 처리 역할을 순서대로 직접 작성해 보세요."];
-    return {passed:missing.length===0,missing};
-  }
-
-  if(id===1){
-    const value=(name:string,variables:Record<string,number>={})=>{
-      const expression=assignmentExpression(executable,name);
-      return expression?expressionValue(expression,variables):null;
-    };
-    const black=value("black_value");
-    const white=value("white_value");
-    const baseSpeed=value("base_speed");
-    const kp=value("kp");
-    const kd=value("kd");
-    const targetExpression=assignmentExpression(executable,"target");
-    const sensorValues=black!==null&&white!==null?{black_value:black,white_value:white}:{};
-    const target=targetExpression?expressionValue(targetExpression,sensorValues):null;
-    const usesMeasurements=Boolean(targetExpression&&/\bblack_value\b/.test(targetExpression)&&/\bwhite_value\b/.test(targetExpression));
-    const missing:string[]=[];
-    if(black===null||white===null)missing.push("반사광 측정: black_value와 white_value에 0~100 사이 측정값을 저장해 보세요.");
-    else if(black<0||white>100||black>=white)missing.push("반사광 측정: 검정값은 흰색값보다 작아야 하며 두 값 모두 0~100 범위여야 해요.");
-    if(baseSpeed===null||baseSpeed<=0||baseSpeed>100)missing.push("기본 속도: base_speed에 로봇이 안전하게 움직일 1~100 사이 값을 선택해 보세요.");
-    if(target===null||black===null||white===null||!usesMeasurements||Math.abs(target-(black+white)/2)>1e-8)missing.push("센서 기준값: target을 black_value와 white_value의 평균을 구하는 식으로 작성해 보세요.");
-    if(kp===null||kp<=0||kp>3)missing.push("P 계수: kp에는 0보다 크고 3 이하인 조절값을 선택해 보세요.");
-    if(kd===null||kd<0||kd>2)missing.push("D 계수: kd에는 0 이상 2 이하인 조절값을 선택해 보세요.");
-    return {passed:missing.length===0,missing};
-  }
-  if(id===2){
-    const lines=executable.split("\n");
-    const defIndex=lines.findIndex((line)=>/^\s*def\s+line_follow\s*\(\s*base_speed\s*,\s*target\s*,\s*kp\s*,\s*kd\s*\)\s*:\s*$/.test(line));
-    const previousIndex=lines.findIndex((line)=>/^\s+previous_error\s*=\s*0\s*$/.test(line));
-    const whileIndex=lines.findIndex((line)=>/^\s+while\s+True\s*:\s*$/.test(line));
-    const sensorIndex=lines.findIndex((line)=>/^\s+sensor_value\s*=\s*color_sensor\.reflection\(\)\s*$/.test(line));
-    const indent=(index:number)=>index<0?0:(lines[index].match(/^\s*/)?.[0].replace(/\t/g,"    ").length??0);
-    const checks:[string,boolean,string][]=[
-      ["함수 선언",defIndex>=0,"def, 함수 이름, 괄호 안 네 값, 마지막 콜론을 차례로 확인해 보세요."],
-      ["이전 오차 초기화",previousIndex>defIndex&&previousIndex<whileIndex&&indent(previousIndex)>indent(defIndex),"첫 반복 전, 함수 안에서 previous_error를 0으로 시작했는지 확인해 보세요."],
-      ["반복 구조",whileIndex>previousIndex&&indent(whileIndex)>indent(defIndex),"while True 뒤의 콜론과 함수 안쪽 들여쓰기를 확인해 보세요."],
-      ["센서 읽기",sensorIndex>whileIndex&&indent(sensorIndex)>indent(whileIndex)&&has("color_sensor.reflection()"),"센서 읽기 결과가 sensor_value에 저장되고 반복문 안에 있는지 확인해 보세요."],
-    ];
-    const missing=checks.filter(([,passed])=>!passed).map(([label,,detail])=>`${label}: ${detail}`);
-    return {passed:missing.length===0,missing};
-  }
-  const formulaChecks:Array<[string,string,(values:Record<string,number>)=>number,Record<string,number>[],string]> = id===3?[
-    ["error","오차 계산",(v)=>v.target-v.sensor_value,[{target:50,sensor_value:40},{target:50,sensor_value:65}],"target에서 sensor_value를 빼는 순서인지 확인해 보세요."],
-    ["p_control","P 제어",(v)=>v.kp*v.error,[{kp:.8,error:10},{kp:1.2,error:-4}],"kp와 error를 곱해 반응 크기를 만들었는지 확인해 보세요."],
-  ]:id===4?[
-    ["change","변화량",(v)=>v.error-v.previous_error,[{error:8,previous_error:3},{error:-2,previous_error:4}],"현재 error에서 previous_error를 빼는 순서인지 확인해 보세요."],
-    ["d_control","D 제어",(v)=>v.kd*v.change,[{kd:.3,change:5},{kd:.5,change:-6}],"kd와 change를 곱했는지 확인해 보세요."],
-  ]:[
-    ["correction","PD 결합",(v)=>v.p_control+v.d_control,[{p_control:8,d_control:1.5},{p_control:-4,d_control:2}],"P와 D의 두 반응을 더했는지 확인해 보세요."],
-    ["left_power","왼쪽 출력",(v)=>v.base_speed+v.correction,[{base_speed:60,correction:10},{base_speed:55,correction:-7}],"기준 속도에 correction을 더했는지 확인해 보세요."],
-    ["right_power","오른쪽 출력",(v)=>v.base_speed-v.correction,[{base_speed:60,correction:10},{base_speed:55,correction:-7}],"왼쪽과 반대 부호로 correction을 적용했는지 확인해 보세요."],
-    ["previous_error","이전 오차 저장",(v)=>v.error,[{error:7},{error:-3}],"이번 error를 다음 반복을 위해 저장했는지 확인해 보세요."],
-  ];
-  const missing=formulaChecks.filter(([name,,expected,samples])=>!expressionMatches(assignmentExpression(executable,name),expected,samples)).map(([name,label,expected,samples,targeted])=>diagnoseExpression(executable,name,label,expected,samples,attempt,targeted));
-  if(id===5){
-    if(!has("left_motor.dc(left_power)"))missing.push("왼쪽 모터 연결: 계산한 left_power가 왼쪽 모터에 전달되는지 확인해 보세요.");
-    if(!has("right_motor.dc(right_power)"))missing.push("오른쪽 모터 연결: 계산한 right_power가 오른쪽 모터에 전달되는지 확인해 보세요.");
-  }
-  return {passed:missing.length===0,missing};
+function migrateGuidedComments(code:string){
+  const guidedComments = new Set(
+    missions.flatMap((mission)=>mission.starter.split("\n")
+      .map((line)=>line.trimStart())
+      .filter((line)=>line.startsWith("# "))
+      .map((line)=>line.slice(2).replace(ENTRY_PROMPT,""))),
+  );
+  return code.split("\n").map((line)=>{
+    const indentation=line.match(/^\s*/)?.[0]??"";
+    const trimmed=line.trimStart();
+    if(!trimmed.startsWith("# "))return line;
+    const body=trimmed.slice(2).replace(" (아래 줄에 코드 입력)","").replace(ENTRY_PROMPT,"");
+    return guidedComments.has(body)?`${indentation}# ${body}${ENTRY_PROMPT}`:line;
+  }).join("\n");
 }
 
 function numberFromCode(code:string,name:string,fallback:number){
@@ -396,7 +314,25 @@ function buildStudentProgram(codes:string[]){
   return `# ${"학생이 복구한 LINE CORE"}\n\n${variables}\n\n${frame}\n${indentFragment(pControl)}\n\n${indentFragment(dControl)}\n${indentFragment(motors)}`;
 }
 
-function TypewriterText({text,instant,onDone,onTick}:{text:string;instant:boolean;onDone:()=>void;onTick:()=>void}){
+const DIALOGUE_HIGHLIGHTS = [
+  "color_sensor.reflection()", "previous_error", "sensor_value", "line_follow()", "line_follow",
+  "black_value", "white_value", "base_speed", "p_control", "d_control", "left_power", "right_power",
+  "correction", "target", "error", "change", "kp", "kd", "while True", "while", "def",
+  "PD 제어", "P 제어", "D 제어", "현재 오차", "이전 오차", "오차 변화", "변화량", "보정값",
+  "경계선", "기준값", "반사광", "센서값", "매개변수", "들여쓰기", "반복", "함수", "변수",
+  "좌우 모터", "기본 속도", "평균",
+];
+
+function highlightedDialogue(text:string,highlights:string[]){
+  const terms=Array.from(new Set(highlights.filter(Boolean))).sort((a,b)=>b.length-a.length);
+  if(!terms.length)return text;
+  const escaped=terms.map((term)=>term.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
+  const expression=new RegExp(`(${escaped.join("|")})`,"gi");
+  const exact=new Set(terms.map((term)=>term.toLocaleLowerCase()));
+  return text.split(expression).map((part,index)=>exact.has(part.toLocaleLowerCase())?<strong className="dialogueKeyword" key={`${part}-${index}`}>{part}</strong>:part);
+}
+
+function TypewriterText({text,highlights,instant,onDone,onTick}:{text:string;highlights:string[];instant:boolean;onDone:()=>void;onTick:()=>void}){
   const [length,setLength]=useState(0);
   const onDoneRef=useRef(onDone);const onTickRef=useRef(onTick);
   useEffect(()=>{onDoneRef.current=onDone;onTickRef.current=onTick},[onDone,onTick]);
@@ -416,7 +352,7 @@ function TypewriterText({text,instant,onDone,onTick}:{text:string;instant:boolea
     },24);
     return ()=>window.clearInterval(timer);
   },[text,instant]);
-  return <p className={`dialogueText typewriter ${finished?"finished":""}`}><span aria-hidden="true">{text.slice(0,length)}</span><span className="srOnly">{text}</span><i aria-hidden="true"/></p>;
+  return <p className={`dialogueText typewriter ${finished?"finished":""}`}><span aria-hidden="true">{highlightedDialogue(text.slice(0,length),highlights)}</span><span className="srOnly">{text}</span><i aria-hidden="true"/></p>;
 }
 
 type SoundCue="click"|"type"|"correct"|"wrong"|"clear";
@@ -465,9 +401,9 @@ function useGameAudio(enabled:boolean){
       const start=context.currentTime+.04;
       [261.63,293.66,329.63,392,329.63,293.66,246.94,293.66].forEach((note,index)=>{
         const noteStart=start+index*1.02;
-        tone(context,note,noteStart,1.26,.032,"sine",bgmBus);
-        tone(context,note/2,noteStart,1.3,.011,"triangle",bgmBus);
-        if(index%2===0)tone(context,note*2,noteStart+.12,.82,.006,"sine",bgmBus);
+        tone(context,note,noteStart,1.26,.06,"sine",bgmBus);
+        tone(context,note/2,noteStart,1.3,.022,"triangle",bgmBus);
+        if(index%2===0)tone(context,note*2,noteStart+.12,.82,.011,"sine",bgmBus);
       });
     };
     ambient();
@@ -564,9 +500,8 @@ function PDSimulator({initialKp,initialKd}:{initialKp:number;initialKd:number}){
 }
 
 export default function Home() {
-  const [screen,setScreen] = useState<"title"|"login"|"mission"|"ending">("title");
+  const [screen,setScreen] = useState<"title"|"login"|"mission"|"quiz"|"ending">("title");
   const [name,setName] = useState("");
-  const [classCode,setClassCode] = useState("");
   const [completed,setCompleted] = useState<number[]>([]);
   const [active,setActive] = useState(0);
   const [step,setStep] = useState(0);
@@ -590,6 +525,14 @@ export default function Home() {
   const [endingTab,setEndingTab] = useState<"code"|"lab">("lab");
   const [writingMode,setWritingMode] = useState<"guided"|"free">("guided");
   const [showLearningReview,setShowLearningReview] = useState(false);
+  const [showGlossary,setShowGlossary] = useState(false);
+  const [glossaryIndex,setGlossaryIndex] = useState(0);
+  const [quizIndex,setQuizIndex] = useState(0);
+  const [quizChoice,setQuizChoice] = useState<number|null>(null);
+  const [quizChecked,setQuizChecked] = useState(false);
+  const [quizAnswers,setQuizAnswers] = useState<number[]>([]);
+  const [quizComplete,setQuizComplete] = useState(false);
+  const [lastQuizScore,setLastQuizScore] = useState<number|null>(null);
   const audio=useGameAudio(soundOn);
   const mission = missions[active];
   const learningChecks=learningChecksFor(mission);
@@ -600,6 +543,7 @@ export default function Home() {
     mission.story,
     `${name} 엔지니어님, 이번 임무에서 할 일은 다음과 같아요. ${mission.goal} 준비되면 퀘스트 내용을 확인해 주세요.`,
   ];
+  const dialogueHighlights=name.trim()?[name.trim(),...DIALOGUE_HIGHLIGHTS]:DIALOGUE_HIGHLIGHTS;
   const currentCheck=learningChecks[Math.min(questionRound,learningChecks.length-1)];
   const currentQuestion=currentCheck.question;
   const rawOptions=currentCheck.options;
@@ -616,6 +560,11 @@ export default function Home() {
   const testRows=testResultsFor(active,code,mission.tests);
   const studentKp=numberFromCode(studentCodes[1],"kp",.8);
   const studentKd=numberFromCode(studentCodes[1],"kd",.3);
+  const quizScore=finalQuizQuestions.reduce((score,question,index)=>score+(quizAnswers[index]===question.answer?1:0),0);
+  const quizCategoryScores=(["센서와 기준","PD 제어","파이썬 문법"] as const).map((category)=>{
+    const indexes=finalQuizQuestions.map((question,index)=>question.category===category?index:-1).filter((index)=>index>=0);
+    return {category,total:indexes.length,correct:indexes.filter((index)=>quizAnswers[index]===finalQuizQuestions[index].answer).length};
+  });
 
   useEffect(()=>{
     const restoreSession = window.setTimeout(()=>{
@@ -635,7 +584,7 @@ export default function Home() {
         return;
       }
       try{if(savedProgress)setCompleted(JSON.parse(savedProgress));}catch{localStorage.removeItem("linecore-progress")}
-      try{if(savedCodes)setStudentCodes(JSON.parse(savedCodes));}catch{localStorage.removeItem("linecore-codes")}
+      try{if(savedCodes){const migratedCodes=JSON.parse(savedCodes).map((item:string)=>migrateGuidedComments(item));setStudentCodes(migratedCodes);localStorage.setItem("linecore-codes",JSON.stringify(migratedCodes))}}catch{localStorage.removeItem("linecore-codes")}
       try{if(savedAssist)setAssistHistory(JSON.parse(savedAssist));}catch{localStorage.removeItem("linecore-assist")}
       if(savedSound!==null)setSoundOn(savedSound==="on");
     },0);
@@ -668,20 +617,18 @@ export default function Home() {
   }
   function startGame(){
     audio.activate();audio.play("click");
-    transition(()=>{
-      if(!name.trim()){setScreen("login");return;}
-      if(completed.length===missions.length){const fresh=resetLearning();openMission(0,fresh.nextCodes,fresh.nextAssist);return;}
-      openMission(nextMission<0?0:nextMission);
-    },name.trim()?"저장된 라인 코어에 연결하는 중":"엔지니어 등록 정보를 확인하는 중");
+    transition(()=>setScreen("login"),"엔지니어 등록 정보를 확인하는 중");
   }
   function login(e:FormEvent){
     e.preventDefault();
-    if(!name.trim()||!classCode.trim())return;
+    if(!name.trim())return;
     const previousName=localStorage.getItem("linecore-name");
     audio.activate();audio.play("click");
-    const fresh=previousName&&previousName!==name.trim()?resetLearning():null;
+    const samePlayer=previousName===name.trim();
+    const shouldReset=Boolean(previousName&&!samePlayer)||(samePlayer&&completed.length===missions.length);
+    const fresh=shouldReset?resetLearning():null;
     localStorage.setItem("linecore-name",name.trim());
-    transition(()=>openMission(previousName===name.trim()&&nextMission>=0?nextMission:0,fresh?.nextCodes,fresh?.nextAssist),"라인 코어 세계를 불러오는 중");
+    transition(()=>openMission(samePlayer&&nextMission>=0?nextMission:0,fresh?.nextCodes,fresh?.nextAssist),"라인 코어 세계를 불러오는 중");
   }
   function advanceDialogue(){
     audio.play("click");
@@ -704,8 +651,8 @@ export default function Home() {
     const result=validate(active,code,nextAttempt);
     const nextCodes=studentCodes.map((item,index)=>index===active?code:item);
     const nextAssist=assistHistory.map((item,index)=>index===active?{...item,usedSolution:false,attempts:nextAttempt}:item);
-    persistLearning(nextCodes,nextAssist);setAttempts(nextAttempt);setPassed(result.passed);setShowClear(false);setValidationIssues(Array.from(new Set(result.missing)));
-    audio.play(result.passed?"correct":"wrong");setStep(3);
+    persistLearning(nextCodes,nextAssist);setAttempts(nextAttempt);setPassed(result.passed);setShowClear(result.passed);setValidationIssues(Array.from(new Set(result.missing)));
+    audio.play(result.passed?"clear":"wrong");setStep(3);
   }
   function finishMission(){
     audio.play("clear");
@@ -713,7 +660,36 @@ export default function Home() {
     setCompleted(list);
     localStorage.setItem("linecore-progress",JSON.stringify(list));
     if(active<missions.length-1)transition(()=>openMission(active+1),`CHAPTER ${active+1} 복구 완료 · 다음 구역으로 이동 중`,850);
-    else transition(()=>setScreen("ending"),"라인 코어 전체 시스템을 동기화하는 중",950);
+    else transition(()=>{resetFinalQuiz();setScreen("quiz")},"20문제 종합 점검을 준비하는 중",950);
+  }
+
+  function openGlossary(topicId?:string){
+    if(topicId){
+      const found=glossaryTopics.findIndex((topic)=>topic.id===topicId);
+      if(found>=0)setGlossaryIndex(found);
+    }
+    audio.play("click");
+    setShowGlossary(true);
+  }
+
+  function resetFinalQuiz(){
+    setQuizIndex(0);setQuizChoice(null);setQuizChecked(false);setQuizAnswers([]);setQuizComplete(false);
+  }
+
+  function confirmQuizAnswer(){
+    if(quizChoice===null)return;
+    setQuizAnswers((answers)=>{
+      const next=[...answers];next[quizIndex]=quizChoice;return next;
+    });
+    setQuizChecked(true);
+    audio.play(quizChoice===finalQuizQuestions[quizIndex].answer?"correct":"wrong");
+  }
+
+  function advanceQuiz(){
+    audio.play("click");
+    if(quizIndex<finalQuizQuestions.length-1){setQuizIndex((index)=>index+1);setQuizChoice(null);setQuizChecked(false);return;}
+    setLastQuizScore(quizScore);setQuizComplete(true);
+    localStorage.setItem("linecore-final-quiz-score",String(quizScore));
   }
 
   function toggleSound(){
@@ -722,9 +698,12 @@ export default function Home() {
   }
 
   const loading=loadingMessage?<LoadingScreen message={loadingMessage}/>:null;
+  const glossaryLayer=showGlossary?<ConceptDictionary index={glossaryIndex} onSelect={setGlossaryIndex} onClose={()=>setShowGlossary(false)}/>:null;
   const startLabel=!name.trim()?"GAME START":completed.length===missions.length?"다시 시작":completed.length?"이어서 시작":"GAME START";
+  const quizQuestion=finalQuizQuestions[Math.min(quizIndex,finalQuizQuestions.length-1)];
+  const quizLevel=quizScore>=18?"라인 코어 마스터":quizScore>=14?"안정적인 엔지니어":quizScore>=10?"성장 중인 엔지니어":"개념을 다시 연결해 볼 단계";
 
-  if(screen==="title") return <><main className="titleScreen" aria-hidden={Boolean(loadingMessage)} inert={Boolean(loadingMessage)}>
+  if(screen==="title") return <><main className="titleScreen" aria-hidden={showGlossary||Boolean(loadingMessage)} inert={showGlossary||Boolean(loadingMessage)}>
     <img className="titleLogo" src="/assets/playwell-logo.png" alt="Playwell"/>
     <div className="titleSky" aria-hidden="true"><i/><i/><i/></div>
     <svg className="titleRoute" viewBox="0 0 1400 800" aria-hidden="true"><path d="M-80 820C290 635 360 730 590 575s274-263 520-157 218 221 392 80"/><path d="M-80 820C290 635 360 730 590 575s274-263 520-157 218 221 392 80"/></svg>
@@ -742,31 +721,68 @@ export default function Home() {
       </div>
       <button className="gameStart" onClick={startGame}><span><Icon name="play" size={24}/></span>{startLabel}<Icon name="arrow"/></button>
     </section>
-    {name.trim()&&<button className="changePlayer" onClick={()=>transition(()=>setScreen("login"),"학생 정보를 전환하는 중",450)}><Icon name="user" size={14}/> 학생 변경</button>}
+    <GlossaryButton className="titleGlossary" onClick={()=>openGlossary()}/>
     <button className="soundToggle titleSound" onClick={toggleSound} aria-pressed={soundOn} title="차분한 BGM과 타이핑 효과음"><Icon name={soundOn?"sound":"mute"} size={17}/><span>{soundOn?"BGM + 효과음 ON":"BGM + 효과음 OFF"}</span></button>
     <div className="titleModules"><span>VARIABLE</span><i/><span>FUNCTION</span><i/><span>P CONTROL</span><i/><span>D CONTROL</span></div>
-  </main>{loading}</>;
+  </main>{glossaryLayer}{loading}</>;
 
-  if(screen==="login") return <><main className="loginGame" aria-hidden={Boolean(loadingMessage)} inert={Boolean(loadingMessage)}>
+  if(screen==="login") return <><main className="loginGame" aria-hidden={showGlossary||Boolean(loadingMessage)} inert={showGlossary||Boolean(loadingMessage)}>
     <button className="backTitle" onClick={()=>setScreen("title")}><Icon name="arrow" size={17}/> 타이틀로</button>
+    <GlossaryButton className="loginGlossary" onClick={()=>openGlossary()}/>
     <button className="soundToggle loginSound" onClick={toggleSound} aria-pressed={soundOn} title="차분한 BGM과 타이핑 효과음"><Icon name={soundOn?"sound":"mute"} size={17}/><span>{soundOn?"BGM + 효과음 ON":"BGM + 효과음 OFF"}</span></button>
     <img className="loginLogo" src="/assets/playwell-logo.png" alt="Playwell"/>
     <img className="loginCharacter" src="/assets/lumi-guide.webp" alt="학생을 기다리는 안내 로봇 루미"/>
     <form className="gameLoginCard" onSubmit={login}>
-      <div className="loginBadge"><Icon name="user" size={25}/></div><p className="kicker">PLAYER ACCESS</p><h1>엔지니어 등록</h1><p>이름과 클래스 코드를 입력하면 바로 인트로가 시작됩니다.</p>
+      <div className="loginCardHead"><div className="loginBadge"><Icon name="user" size={25}/></div><div><p className="kicker">PLAYER ACCESS</p><b>LINE CORE ACADEMY</b></div></div>
+      <h1>엔지니어 이름을<br/>알려 주세요</h1><p>입력한 이름으로 루미가 안내하고, 이 기기에 저장된 학습 기록을 이어갑니다.</p>
       <label>학생 이름<input value={name} onChange={e=>setName(e.target.value)} placeholder="이름을 입력하세요" autoFocus/></label>
-      <label>클래스 코드<input value={classCode} onChange={e=>setClassCode(e.target.value)} placeholder="수업 코드를 입력하세요" inputMode="numeric"/></label>
-      <button className="primary" disabled={!name.trim()||!classCode.trim()}>게임에 입장하기 <Icon name="arrow"/></button>
+      <button className="primary" disabled={!name.trim()}>게임에 입장하기 <Icon name="arrow"/></button>
       <small><Icon name="lock" size={15}/> 진행 기록은 현재 기기에 자동 저장됩니다.</small>
     </form>
-  </main>{loading}</>;
+    <div className="titleModules loginModules" aria-hidden="true"><span>VARIABLE</span><i/><span>FUNCTION</span><i/><span>P CONTROL</span><i/><span>D CONTROL</span></div>
+  </main>{glossaryLayer}{loading}</>;
 
-  if(screen==="ending") return <><main className="endingScreen" aria-hidden={Boolean(loadingMessage)} inert={Boolean(loadingMessage)}>
+  if(screen==="quiz") return <><main className="finalQuizScreen" aria-hidden={showGlossary||Boolean(loadingMessage)} inert={showGlossary||Boolean(loadingMessage)}>
+    <header className="finalQuizHud">
+      <img src="/assets/playwell-logo.png" alt="Playwell"/>
+      <div><small>FINAL CONCEPT CHECK</small><b>라인 팔로잉 종합 점검</b></div>
+      <span className="finalQuizProgress"><b>{quizComplete?finalQuizQuestions.length:quizIndex+1}</b> / {finalQuizQuestions.length}<i><em style={{width:`${quizComplete?100:((quizIndex+1)/finalQuizQuestions.length)*100}%`}}/></i></span>
+      <div className="finalQuizTools"><GlossaryButton onClick={()=>openGlossary(quizQuestion.glossaryId)}/><button className="soundToggle" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn?"BGM과 효과음 끄기":"BGM과 효과음 켜기"}><Icon name={soundOn?"sound":"mute"} size={16}/></button></div>
+    </header>
+    <section className="finalQuizViewport">
+      {!quizComplete?<article className="finalQuizPanel">
+        <header className="quizQuestionHead"><span><Icon name={quizQuestion.category==="파이썬 문법"?"code":quizQuestion.category==="PD 제어"?"target":"light"} size={23}/></span><div><small>{quizQuestion.category} · QUESTION {String(quizIndex+1).padStart(2,"0")}</small><h1>{quizQuestion.question}</h1></div></header>
+        <div className="finalQuizOptions" role="group" aria-label={`${quizIndex+1}번 문제 선택지`}>
+          {quizQuestion.options.map((option,index)=>{
+            const selected=quizChoice===index;
+            const correct=quizChecked&&index===quizQuestion.answer;
+            const wrong=quizChecked&&selected&&index!==quizQuestion.answer;
+            return <button key={`${quizIndex}-${option}`} className={`${selected?"selected":""} ${correct?"correct":""} ${wrong?"wrong":""}`} aria-pressed={selected} disabled={quizChecked} onClick={()=>{audio.play("click");setQuizChoice(index)}}><i>{String.fromCharCode(65+index)}</i><span>{option}</span>{correct?<Icon name="check" size={19}/>:wrong?<Icon name="x" size={19}/>:null}</button>;
+          })}
+        </div>
+        <div className={`quizFeedback ${quizChecked?(quizChoice===quizQuestion.answer?"correct":"wrong"):"waiting"}`} aria-live="polite">
+          <span><Icon name={quizChecked?quizChoice===quizQuestion.answer?"check":"brain":"brain"} size={20}/></span>
+          <div><b>{quizChecked?quizChoice===quizQuestion.answer?"정확해요":"개념을 한 번 더 연결해 볼까요?":"답을 선택한 뒤 확인해 주세요"}</b><p>{quizChecked?quizQuestion.explanation:"정답을 고른 뒤 이유와 관련 개념을 바로 확인할 수 있어요."}</p></div>
+          {quizChecked&&<button onClick={()=>openGlossary(quizQuestion.glossaryId)}><Icon name="book" size={15}/> 개념 사전에서 보기</button>}
+        </div>
+        <footer className="quizQuestionActions"><p><Icon name="light" size={15}/>틀려도 괜찮아요. 결과 화면에서 약한 개념을 다시 확인할 수 있습니다.</p><button className="primary" disabled={quizChoice===null} onClick={quizChecked?advanceQuiz:confirmQuizAnswer}>{quizChecked?quizIndex===finalQuizQuestions.length-1?"결과 확인":"다음 문제":"정답 확인"}<Icon name="arrow" size={19}/></button></footer>
+      </article>:<article className="quizResultPanel">
+        <header><span><Icon name="check" size={32}/></span><div><small>FINAL CHECK COMPLETE</small><h1>20문제 종합 점검 완료</h1><p>{name} 엔지니어의 라인 팔로잉 개념 연결 결과입니다.</p></div></header>
+        <div className="quizScoreHero"><strong><b>{quizScore}</b><span>/ {finalQuizQuestions.length}</span></strong><div><small>LEARNING LEVEL</small><h2>{quizLevel}</h2><p>점수는 평가의 끝이 아니라 다시 볼 개념을 찾는 안내입니다.</p></div></div>
+        <div className="quizCategoryGrid">{quizCategoryScores.map((item)=><section key={item.category}><small>{item.category}</small><b>{item.correct} / {item.total}</b><i><em style={{width:`${(item.correct/item.total)*100}%`}}/></i></section>)}</div>
+        <section className="quizReviewList"><header><div><small>REVIEW MAP</small><h2>{quizScore===finalQuizQuestions.length?"모든 개념을 정확히 연결했어요":"다시 보면 좋은 개념"}</h2></div><button onClick={()=>openGlossary()}><Icon name="book" size={16}/> 개념 사전 열기</button></header>{quizScore<finalQuizQuestions.length?<div>{finalQuizQuestions.map((question,index)=>quizAnswers[index]!==question.answer?<button key={question.question} onClick={()=>openGlossary(question.glossaryId)}><span>{String(index+1).padStart(2,"0")}</span><div><b>{question.category}</b><p>{question.question}</p></div><Icon name="arrow" size={17}/></button>:null)}</div>:<p className="perfectReview"><Icon name="check" size={18}/>필요할 때 우측 상단 개념 사전에서 공식과 예시를 다시 확인할 수 있어요.</p>}</section>
+        <footer><button className="secondary" onClick={resetFinalQuiz}>20문제 다시 풀기</button><button className="primary" onClick={()=>transition(()=>setScreen("ending"),"라인 코어 전체 시스템을 동기화하는 중",750)}>최종 결과 보기 <Icon name="arrow"/></button></footer>
+      </article>}
+    </section>
+  </main>{glossaryLayer}{loading}</>;
+
+  if(screen==="ending") return <><main className="endingScreen" aria-hidden={showGlossary||Boolean(loadingMessage)} inert={showGlossary||Boolean(loadingMessage)}>
     <img className="endingLogo" src="/assets/playwell-logo.png" alt="Playwell"/>
     <img className="endingCharacter" src="/assets/lumi-clear.webp" alt="라인 코어를 복구한 루미"/>
+    <GlossaryButton className="endingGlossary" onClick={()=>openGlossary()}/>
     <button className="soundToggle endingSound" onClick={toggleSound} aria-pressed={soundOn} title="차분한 BGM과 타이핑 효과음"><Icon name={soundOn?"sound":"mute"} size={17}/><span>{soundOn?"BGM + 효과음 ON":"BGM + 효과음 OFF"}</span></button>
     <section className="endingPanel">
-      <div className="endingSummary"><span className="endingCore"><Icon name="check" size={39}/></span><p className="kicker">LINE CORE RESTORED</p><h1>라인 코어<br/>복구 완료</h1><p>{name} 엔지니어가 직접 작성한 모듈이 하나의 <code>line_follow()</code> 함수로 연결됐습니다.</p><div className="endingModules"><span>변수 설정</span><span>함수 정의</span><span>P 제어</span><span>D 제어</span><span>좌우 출력</span></div><div className="endingActions"><button className={endingTab==="lab"?"active":""} onClick={()=>setEndingTab("lab")}><Icon name="target" size={16}/> 주행 실험</button><button className={endingTab==="code"?"active":""} onClick={()=>setEndingTab("code")}><Icon name="code" size={16}/> 내 전체 코드</button></div><button className="gameStart small" onClick={()=>transition(()=>setScreen("title"),"타이틀 화면으로 돌아가는 중",550)}>타이틀로 돌아가기 <Icon name="arrow"/></button></div>
+      <div className="endingSummary"><span className="endingCore"><Icon name="check" size={39}/></span><p className="kicker">LINE CORE RESTORED</p><h1>라인 코어<br/>복구 완료</h1><p>{name} 엔지니어가 직접 작성한 모듈이 하나의 <code>line_follow()</code> 함수로 연결됐습니다.</p>{lastQuizScore!==null&&<div className="endingQuizScore"><small>FINAL CONCEPT CHECK</small><b>{lastQuizScore} / {finalQuizQuestions.length}</b></div>}<div className="endingModules"><span>변수 설정</span><span>함수 정의</span><span>P 제어</span><span>D 제어</span><span>좌우 출력</span></div><div className="endingActions"><button className={endingTab==="lab"?"active":""} onClick={()=>setEndingTab("lab")}><Icon name="target" size={16}/> 주행 실험</button><button className={endingTab==="code"?"active":""} onClick={()=>setEndingTab("code")}><Icon name="code" size={16}/> 내 전체 코드</button></div><button className="gameStart small" onClick={()=>transition(()=>setScreen("title"),"타이틀 화면으로 돌아가는 중",550)}>타이틀로 돌아가기 <Icon name="arrow"/></button></div>
       {endingTab==="lab"?<PDSimulator initialKp={studentKp} initialKd={studentKd}/>:<section className="finalCodePanel" aria-label="완성된 line_follow 전체 코드">
         <header><div><small>STUDENT RESTORED SOURCE</small><h2>내가 완성한 전체 코드</h2></div><button onClick={async()=>{try{await navigator.clipboard.writeText(finalProgram);setCodeCopied(true);window.setTimeout(()=>setCodeCopied(false),1600)}catch{return}}}><Icon name={codeCopied?"check":"code"} size={16}/>{codeCopied?"복사 완료":"전체 코드 복사"}</button></header>
         <pre><code className="finalCodeLines">{finalProgram.split("\n").map((line,index)=>{
@@ -777,10 +793,10 @@ export default function Home() {
         <p><Icon name="brain" size={16}/> 각 장에서 통과한 코드 조각을 연결했습니다. 서로 다른 올바른 수식도 그대로 보존됩니다.</p>
       </section>}
     </section>
-  </main>{loading}</>;
+  </main>{glossaryLayer}{loading}</>;
 
-  return <><main className="gameScreen" aria-hidden={Boolean(loadingMessage)} inert={Boolean(loadingMessage)}>
-    <header className="gameHud" aria-hidden={showClear} inert={showClear}><img src="/assets/playwell-logo.png" alt="Playwell"/><div className="chapterInfo"><small>{mission.chapter}</small><b>{mission.title}</b></div><div className="chapterProgress"><span>CORE {active+1} / {missions.length}</span><div>{missions.map((_,i)=><i className={i<active?"done":i===active?"active":""} key={i}/>)}</div></div><div className="stageProgress"><small>{stageNames[step]}</small><div>{stageNames.map((s,i)=><i className={i<step?"done":i===step?"active":""} title={s} key={s}/>)}</div></div><div className="hudActions"><button className="soundToggle" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn?"BGM과 효과음 끄기":"BGM과 효과음 켜기"}><Icon name={soundOn?"sound":"mute"} size={16}/></button><button className="exitGame" onClick={()=>transition(()=>setScreen("title"),"게임을 안전하게 저장하는 중",500)}>게임 종료</button></div></header>
+  return <><main className="gameScreen" aria-hidden={showGlossary||Boolean(loadingMessage)} inert={showGlossary||Boolean(loadingMessage)}>
+    <header className="gameHud" aria-hidden={showClear} inert={showClear}><img src="/assets/playwell-logo.png" alt="Playwell"/><div className="chapterInfo"><small>{mission.chapter}</small><b>{mission.title}</b></div><div className="chapterProgress"><span>CORE {active+1} / {missions.length}</span><div>{missions.map((_,i)=><i className={i<active?"done":i===active?"active":""} key={i}/>)}</div></div><div className="stageProgress"><small>{stageNames[step]}</small><div>{stageNames.map((s,i)=><i className={i<step?"done":i===step?"active":""} title={s} key={s}/>)}</div></div><div className="hudActions"><GlossaryButton onClick={()=>openGlossary()}/><button className="soundToggle" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn?"BGM과 효과음 끄기":"BGM과 효과음 켜기"}><Icon name={soundOn?"sound":"mute"} size={16}/></button><button className="exitGame" onClick={()=>transition(()=>setScreen("title"),"게임을 안전하게 저장하는 중",500)}>게임 종료</button></div></header>
     <section className={`gameViewport stage${step}`}>
     <section className={`missionMain ${step===0?"introMode":""}`}>
       {step===0&&<section className={`rpgScene ${briefingReady?"missionReady":""}`} aria-label={`${mission.title} ${briefingReady?"미션 정보":"도입 대화"}`}>
@@ -796,7 +812,7 @@ export default function Home() {
         <img className="sceneCharacter" src="/assets/lumi-guide.webp" alt="라인 코어 복구를 요청하는 안내 로봇 루미"/>
         {!briefingReady?<div className="dialogueBox">
           <span className="speakerName">안내 로봇 · 루미</span>
-          <TypewriterText key={dialogueIndex} text={dialogue[dialogueIndex]} instant={dialogueInstant} onDone={()=>setDialogueDone(true)} onTick={()=>audio.play("type")}/>
+          <TypewriterText key={dialogueIndex} text={dialogue[dialogueIndex]} highlights={dialogueHighlights} instant={dialogueInstant} onDone={()=>setDialogueDone(true)} onTick={()=>audio.play("type")}/>
           <div className="dialogueFooter"><span>{dialogueIndex+1} / {dialogue.length}</span><span className="dialogueDots" aria-hidden="true">{dialogue.map((_,i)=><i className={i===dialogueIndex?"active":""} key={i}/>)}</span><button onClick={advanceDialogue} aria-label={!dialogueDone?"대사 빠르게 표시":dialogueIndex===dialogue.length-1?"미션 확인하기":"다음 대화"}>{!dialogueDone?"빠르게 표시":dialogueIndex===dialogue.length-1?"미션 확인":"다음"}<Icon name="arrow"/></button></div>
         </div>:<section className="missionBoard" aria-label="게임 목표와 승리 조건">
           <div className="missionGoal">
@@ -860,13 +876,11 @@ export default function Home() {
       </section>}
       {step===2&&<section className="stagePanel codeStage" aria-hidden={showLearningReview} inert={showLearningReview}>
         <ActivityHead icon="code" label="STEP 3 · 코드 작성" title={mission.codeTitle} text={mission.codeHint}/>
-        <section className="codeBlueprint" aria-label="이번 미션의 복구 설계도">
-          <div className="blueprintTitle"><Icon name="book" size={18}/><span><small>ROLE BLUEPRINT</small><b>코드 역할 설계도</b></span><em>정답이 아닌 작성 패턴</em></div>
-          <div className="blueprintItems">{mission.codeGuide.map(([snippet,role],index)=><article className="patternGuide" key={snippet}><small>CORE {String(index+1).padStart(2,"0")}</small><p>{role}</p><code>{mission.guidePatterns[index]}</code></article>)}</div>
-        </section>
+        <WritingSequence guide={mission.gradingGuide}/>
+        <MissionKeywords guide={mission.gradingGuide}/>
         <div className="editor">
           <div className="editorTop"><span/><span/><span/><b>mission_{active+1}.py</b><em className={`writingBadge ${writingMode}`}><Icon name={writingMode==="guided"?"book":"code"} size={12}/>{writingMode==="guided"?"주석 가이드 모드":"자유 작성 모드"}</em><div className="editorTools"><button className={writingMode==="guided"?"active":""} onClick={()=>changeWritingMode("guided")}><Icon name="book" size={14}/> 주석 가이드</button><button className={writingMode==="free"?"active":""} onClick={()=>changeWritingMode("free")}><Icon name="code" size={14}/> 빈 화면 도전</button></div></div>
-          <div><pre>{Array.from({length:Math.max(8,code.split("\n").length)},(_,i)=>`${i+1}\n`)}</pre><textarea value={code} onChange={e=>setCode(e.target.value)} spellCheck={false} aria-label="파이썬 코드 작성"/></div>
+          <CodeEditor value={code} onChange={setCode}/>
         </div>
         <Actions back={()=>{audio.play("click");setShowLearningReview(true)}} backLabel="배운 개념 다시보기" next={runCode} nextLabel="코드 검사하기"/>
       </section>}
@@ -886,17 +900,79 @@ export default function Home() {
               <h2>{mission.recovered} 복구 완료</h2>
               <div className="clearTestCount"><span><Icon name="terminal" size={18}/></span><div><small>TEST RESULT</small><b>{testRows.length} / {testRows.length} 통과</b></div></div>
               <div className={`clearAssist ${writingMode==="guided"?"assisted":"independent"}`}><Icon name={writingMode==="guided"?"book":"check"} size={15}/><span>{writingMode==="guided"?"역할 주석을 따라 직접 작성했어요":"가이드 없이 빈 화면에서 작성했어요"}</span></div>
-              <button className="clearNext" autoFocus onClick={finishMission}><span><Icon name="play" size={18}/></span>{active===missions.length-1?"최종 결과로":"다음 단계로"}<Icon name="arrow" size={21}/></button>
+              <button className="clearNext" autoFocus onClick={finishMission}><span><Icon name="play" size={18}/></span>{active===missions.length-1?"종합 문제로":"다음 단계로"}<Icon name="arrow" size={21}/></button>
             </div>
           </section>
         </div>}
       </section>}
     </section>
     </section>
-  </main>{loading}</>;
+  </main>{glossaryLayer}{loading}</>;
+}
+
+function GlossaryButton({onClick,className=""}:{onClick:()=>void;className?:string}){
+  return <button className={`glossaryButton ${className}`.trim()} onClick={onClick}><Icon name="book" size={16}/><span>개념 사전</span></button>;
+}
+
+function ConceptDictionary({index,onSelect,onClose}:{index:number;onSelect:(index:number)=>void;onClose:()=>void}){
+  const topic=glossaryTopics[Math.min(Math.max(index,0),glossaryTopics.length-1)];
+  useEffect(()=>{
+    const closeOnEscape=(event:KeyboardEvent)=>{if(event.key==="Escape")onClose()};
+    window.addEventListener("keydown",closeOnEscape);
+    return ()=>window.removeEventListener("keydown",closeOnEscape);
+  },[onClose]);
+  return <div className="conceptDictionaryOverlay" role="dialog" aria-modal="true" aria-labelledby="concept-dictionary-title" onMouseDown={(event)=>{if(event.target===event.currentTarget)onClose()}}>
+    <section className="conceptDictionaryPanel">
+      <header className="dictionaryHeader"><span><Icon name="book" size={24}/></span><div><small>LINE FOLLOWING CONCEPT DICTIONARY</small><h1 id="concept-dictionary-title">라인 팔로잉 개념 사전</h1><p>개념·공식·예시를 천천히 읽고 문제를 해결할 힌트를 찾아보세요.</p></div><button onClick={onClose} aria-label="개념 사전 닫기"><Icon name="x" size={20}/></button></header>
+      <div className="dictionaryBody">
+        <nav aria-label="개념 목록">{glossaryTopics.map((item,itemIndex)=><button className={itemIndex===index?"active":""} key={item.id} onClick={()=>onSelect(itemIndex)}><span>{item.number}</span><b>{item.title}</b></button>)}</nav>
+        <article className="dictionaryArticle">
+          <header><small>{topic.eyebrow} · CONCEPT {topic.number}</small><h2>{topic.title}</h2><p>{topic.summary}</p></header>
+          <section className="dictionaryWhy"><span><Icon name="brain" size={20}/></span><div><small>왜 필요할까요?</small><p>{topic.why}</p></div></section>
+          <section className="dictionarySection"><small>핵심 공식·선언 예시</small><div className="dictionaryFormulas">{topic.formulas.map((formula)=><code key={formula}>{formula}</code>)}</div></section>
+          <section className="dictionarySection"><small>예시로 연결하기</small><ul>{topic.examples.map((example)=><li key={example}><Icon name="check" size={15}/><span>{example}</span></li>)}</ul></section>
+          <aside className="dictionaryRemember"><span><Icon name="light" size={21}/></span><div><small>꼭 기억해요</small><p>{topic.remember}</p></div></aside>
+          <footer><button className="dictionaryPrev" disabled={index===0} onClick={()=>onSelect(index-1)}><Icon name="arrow" size={17}/> 이전 개념</button><span>{index+1} / {glossaryTopics.length}</span><button className="dictionaryNext" disabled={index===glossaryTopics.length-1} onClick={()=>onSelect(index+1)}>다음 개념 <Icon name="arrow" size={17}/></button></footer>
+        </article>
+      </div>
+    </section>
+  </div>;
+}
+
+function CodeEditor({value,onChange}:{value:string;onChange:(value:string)=>void}){
+  const lineNumbersRef=useRef<HTMLPreElement>(null);
+  const lines=value.split("\n");
+  return <div className="editorBody">
+    <pre className="editorLineNumbers" ref={lineNumbersRef} aria-hidden="true">{Array.from({length:Math.max(8,lines.length)},(_,index)=>`${index+1}\n`)}</pre>
+    <textarea
+      value={value}
+      onChange={(event)=>onChange(event.target.value)}
+      onScroll={(event)=>{if(lineNumbersRef.current)lineNumbersRef.current.scrollTop=event.currentTarget.scrollTop}}
+      wrap="off"
+      spellCheck={false}
+      autoCapitalize="off"
+      autoCorrect="off"
+      aria-label="파이썬 코드 작성"
+    />
+  </div>;
 }
 
 function ActivityHead({icon,label,title,text}:{icon:IconName;label:string;title:string;text:string}){return <div className="activity"><span className="bigIcon"><Icon name={icon}/></span><div><p className="kicker">{label}</p><h1>{title}</h1><p>{text}</p></div></div>}
+
+function WritingSequence({guide}:{guide:GradingGuide}){
+  return <section className="writingSequence" aria-label="이번 미션의 코드 작성 순서">
+    <header className="sequenceTitle"><Icon name="code" size={18}/><span><small>WRITING ORDER</small><b>작성 순서</b></span></header>
+    <ol>{guide.sequence.map((item,index)=><li key={item}><i>{index+1}</i><span>{item}</span>{index<guide.sequence.length-1&&<Icon name="arrow" size={13}/>}</li>)}</ol>
+  </section>;
+}
+
+function MissionKeywords({guide}:{guide:GradingGuide}){
+  return <section className="missionKeywords" aria-label="이번 문제에 필요한 정확한 키워드와 채점 약속">
+    <header className="keywordTitle"><span><Icon name="light" size={17}/></span><div><small>MISSION KEYWORDS</small><b>이번 문제 키워드</b></div></header>
+    <div className="keywordGroup keywordExact"><small>정확히 사용할 이름</small><div>{guide.exact.map((keyword)=><code key={keyword}>{keyword}</code>)}</div></div>
+    <div className="keywordGroup keywordRule"><small>이번 미션의 채점 약속</small><p>{guide.rule}</p>{guide.freedom&&<em>{guide.freedom}</em>}</div>
+  </section>;
+}
 
 function LearningReview({mission,checks,onClose}:{mission:Mission;checks:LearningCheck[];onClose:()=>void}){
   return <div className="learningReviewOverlay" role="dialog" aria-modal="true" aria-labelledby="learning-review-title" onMouseDown={(event)=>{if(event.target===event.currentTarget)onClose()}}>
