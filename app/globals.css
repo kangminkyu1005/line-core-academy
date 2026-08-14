@@ -79,6 +79,39 @@ html,body{width:100%;height:100%;overflow:hidden}
   .loginGame{display:grid;grid-template-columns:1fr;padding:62px 16px 16px}.loginLogo{top:17px;left:18px;width:105px}.backTitle{top:18px;right:17px}.loginCharacter{left:-45%;bottom:-20%;width:150vw;opacity:.18}.gameLoginCard{grid-column:1;justify-self:center;padding:20px 22px;border-radius:22px;gap:8px}.gameLoginCard h1{font-size:26px}.gameLoginCard input{height:42px}
   .gameScreen{grid-template-rows:58px minmax(0,1fr)}.gameHud{min-height:58px;grid-template-columns:73px minmax(110px,1fr) 93px 42px;gap:7px;padding:0 8px}.gameHud>img{width:68px}.chapterInfo small{font-size:7px}.chapterInfo b{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chapterProgress>span{font-size:7px}.stageProgress{display:none}.exitGame{width:42px;padding:7px 3px;font-size:0}.exitGame:after{content:"종료";font-size:8px}.gameViewport{padding:7px}.gameViewport .rpgScene{border-radius:17px}.gameViewport .sceneCharacter{top:8px;right:-55px;width:100%;height:70%}.gameViewport .sceneHud{top:10px;left:10px}.gameViewport .skipDialogue{top:10px;right:10px}.gameViewport .dialogueBox{left:8px;right:8px;bottom:8px;min-height:185px;padding:27px 15px 10px}.gameViewport .dialogueBox>p{min-height:82px;font-size:13px}.gameViewport .speakerName{left:12px}.gameViewport .briefingHead{display:grid;grid-template-columns:1fr auto;gap:6px}.gameViewport .briefingHead h1{font-size:22px}.gameViewport .briefingHead p:not(.kicker){display:none}.gameViewport .replayDialogue{font-size:0;padding:8px}.gameViewport .replayDialogue svg{display:block}.gameViewport .objectiveCard{padding:10px 12px;grid-template-columns:110px 1fr;gap:4px 8px}.gameViewport .questIcon{width:35px;height:35px}.gameViewport .questLabel{gap:7px}.gameViewport .questLabel b{font-size:12px}.gameViewport .objectiveCard h2{font-size:15px}.gameViewport .goalReason{padding:6px 8px}.gameViewport .goalReason svg{display:none}.gameViewport .goalReason p{font-size:8px}.gameViewport .victoryCard{padding:9px 11px;grid-template-columns:108px 1fr;gap:7px}.gameViewport .victoryCard .questLabel{align-self:start}.gameViewport .victoryCard ol{gap:3px}.gameViewport .victoryCard li{min-height:33px}.gameViewport .victoryCard .unlockNote{grid-column:1/-1;padding:7px 10px}.gameViewport .unlockNote small{display:none}.gameViewport .acceptQuest{width:100%;min-height:40px}.codeStage,.testStage{padding:8px 9px 9px;border-top-width:3px;border-radius:15px}.gameViewport .activity h1{font-size:20px}.gameViewport .activity p:not(.kicker){display:none}.thinkingStage .question{padding:12px}.thinkingStage .question h2{font-size:15px}.thinkingStage .options{grid-template-columns:1fr;gap:4px}.thinkingStage .options button{min-height:39px;font-size:10px}.thinkingStage .feedback{padding:6px 9px}.stagePanel .actions{margin-top:5px}.stagePanel .actions .primary,.stagePanel .actions .secondary{min-height:40px;font-size:10px}.codeStage .guide{display:none}.codeStage .editor textarea{font-size:10px}.testStage .testCard{padding:11px}.testStage .testRow{min-height:34px}.gameViewport .complete h1{font-size:23px}.gameViewport .completeIcon{width:48px;height:48px}.gameViewport .resultCode pre{max-height:130px}.gameViewport .summary{padding:7px}.endingLogo{top:17px;left:18px;width:110px}.endingCharacter{right:-50%;bottom:-5%;width:135vw;height:80vh;opacity:.34}.endingPanel{left:7%;top:52%;width:86vw}.endingPanel h1{font-size:50px}.endingCore{width:62px;height:62px}.endingPanel>p:not(.kicker){font-size:12px}.endingModules{margin-bottom:17px}
 }
+
+/* Final 976px QA pass: keep the title intact and prevent the game HUD from
+   turning into a wide, right-heavy control strip on intermediate screens. */
+.titleMark,.titleMark h1,.titleMark h1 span,.titleMark h1 b{min-width:0}
+.titleMark h1{overflow:visible;word-break:keep-all}
+
+@media(min-width:901px) and (max-width:1050px){
+  .titleMark{left:4%;width:min(570px,59vw);padding:22px 22px 24px}
+  .titleMark h1{font-size:clamp(58px,6.3vw,66px);letter-spacing:-.065em}
+  .titleQuest{width:min(500px,100%)}
+  .titleCharacter{right:-9%;width:59%;opacity:.82}
+
+  .gameScreen{grid-template-rows:70px minmax(0,1fr)}
+  .gameHud{grid-template-columns:92px minmax(180px,1fr) 132px auto;gap:10px;padding:0 14px}
+  .gameHud>img{width:86px}
+  .chapterInfo b{max-width:100%;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chapterProgress>span{font-size:8px}
+  .stageProgress{display:none}
+  .hudActions{gap:7px}
+  .hudActions .glossaryButton{min-width:38px;width:38px;padding:0}
+  .hudActions .glossaryButton span{display:none}
+  .gameBgmControl{width:112px;height:38px;padding:0 6px}
+  .gameBgmControl .soundToggle{min-width:30px;width:30px;padding:0}
+  .gameBgmControl .soundToggle span{display:none}
+  .gameBgmControl input{width:61px}
+  .exitGame{min-width:66px}
+}
+
+@media(min-width:651px) and (max-width:900px){
+  .titleMark{overflow:visible}
+  .titleMark h1{font-size:clamp(52px,7vw,62px);letter-spacing:-.06em}
+  .gameBgmControl,.screenAudioControl{background:#002b48e8;color:#d8f8f1}
+}
 .rpgScene.missionReady:after{content:"";position:absolute;z-index:0;inset:0;background:radial-gradient(circle at 72% 28%,#ffe7a52b 0,transparent 31%),linear-gradient(90deg,#001e4138 0,transparent 70%);pointer-events:none}
 .missionReady .sceneCharacter{right:-4%;width:62%;filter:saturate(1.05);transform:scale(1.02);transform-origin:right center;transition:filter .3s,transform .3s}
 .missionBoard{position:absolute;z-index:5;left:28px;right:28px;bottom:27px;width:auto;max-width:1040px;margin:auto;border:3px solid var(--yellow);border-radius:23px 23px 23px 8px;background:#fffaf0f7;color:var(--navy);padding:18px 20px 19px;display:grid;grid-template-columns:170px minmax(0,1fr) 225px;grid-template-rows:auto auto;align-items:center;gap:12px 16px;box-shadow:0 22px 50px #001e4166;backdrop-filter:blur(12px);animation:missionBoardIn .38s cubic-bezier(.2,.8,.2,1) both}
