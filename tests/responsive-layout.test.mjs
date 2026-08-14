@@ -64,6 +64,15 @@ test("the intermediate HUD keeps brand, chapter, progress, stage and actions in 
   assert.match(source, /<header className="gameHud"[\s\S]*?<img[\s\S]*?chapterInfo[\s\S]*?chapterProgress[\s\S]*?stageProgress[\s\S]*?hudActions/);
 });
 
+test("the 976px layout uses a compact four-column HUD without hiding brand or chapter context", () => {
+  const finalPass = styles.slice(styles.indexOf("Final 976px QA pass"));
+  assert.match(finalPass, /@media\(min-width:901px\) and \(max-width:1050px\)/);
+  assert.match(finalPass, /\.gameHud\{grid-template-columns:92px minmax\(180px,1fr\) 132px auto/);
+  assert.match(finalPass, /\.gameHud>img\{width:86px\}/);
+  assert.match(finalPass, /\.stageProgress\{display:none\}/);
+  assert.match(finalPass, /\.titleMark h1\{font-size:clamp\(58px,6\.3vw,66px\)/);
+});
+
 test("all full-screen audio controls expose the same persistent volume input", () => {
   assert.match(source, /const screenAudioControl=/);
   assert.match(source, /screenAudioControl\("titleAudioControl"\)/);
