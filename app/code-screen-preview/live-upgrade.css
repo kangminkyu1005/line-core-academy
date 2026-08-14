@@ -1,0 +1,15 @@
+.codeStage.liveCodeStageUpgraded{width:min(1060px,100%)!important;height:min(690px,calc(100dvh - 94px))!important;max-height:min(690px,calc(100dvh - 94px))!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+.codeStage.liveCodeStageUpgraded>:not([data-live-code-screen-host]){display:none!important}
+[data-live-code-screen-host]{display:block;width:100%;height:100%;min-width:0;min-height:0}
+[data-live-code-screen-host] .liveUpgradeStage{width:100%;height:100%;min-height:0;overflow:auto;overscroll-behavior:contain}
+[data-live-code-screen-host] .liveHintText{white-space:pre-wrap;line-height:1.65}
+[data-live-code-screen-host] .liveHintText code{font-family:var(--mono),monospace;color:#006b5d;font-weight:850}
+@media(max-width:900px){
+  .codeStage.liveCodeStageUpgraded{height:auto!important;max-height:none!important;overflow:visible!important}
+  [data-live-code-screen-host] .liveUpgradeStage{height:auto;overflow:visible}
+}
+@media(max-width:650px){
+  .codeStage.liveCodeStageUpgraded{width:100%!important}
+  [data-live-code-screen-host]{height:auto}
+  [data-live-code-screen-host] .liveUpgradeStage{border-radius:16px}
+}
