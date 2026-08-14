@@ -1,12 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "@fontsource-variable/noto-sans-kr";
 import "./globals.css";
-import "./code-screen-preview/live-upgrade.css";
-import LiveCodeScreenUpgrade from "./code-screen-preview/LiveCodeScreenUpgrade";
-import CodeScreenTestShortcut from "./code-screen-preview/CodeScreenTestShortcut";
 
 const sans = Geist({variable:"--sans",subsets:["latin"]});
 const mono = Geist_Mono({variable:"--mono",subsets:["latin"]});
 export const metadata:Metadata={title:"라인 코어 아카데미",description:"스토리 미션으로 완성하는 파이썬 PD 라인팔로잉 학습",other:{"codex-preview":"development"},icons:{icon:"/favicon.svg"}};
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="ko"><head><link rel="preload" as="image" href="/assets/lumi-clear.webp" type="image/webp"/></head><body className={`${sans.variable} ${mono.variable}`}>{children}<LiveCodeScreenUpgrade/><CodeScreenTestShortcut/></body></html>}
+export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:"#001e41"};
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="ko"><head><link rel="preload" as="image" href="/assets/lumi-clear.webp" type="image/webp"/></head><body className={`${sans.variable} ${mono.variable}`}>{children}</body></html>}

@@ -1,9 +1,11 @@
 "use client";
 
 import { KeyboardEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import styles from "./preview.module.css";
 
-type IconName = "arrow" | "book" | "check" | "code" | "light" | "lock" | "refresh" | "terminal" | "x";
+type IconName = "arrow" | "book" | "check" | "code" | "light" | "lock" | "refresh" | "terminal" | "volume" | "x";
 type BlankKind = "number" | "concept" | "self" | "library" | "text";
 type BlankWidth = "small" | "medium" | "large" | "xlarge";
 type BlankStatus = "idle" | "editing" | "valid" | "invalid";
@@ -58,8 +60,25 @@ type BlankMeta = {
 type AnswersByMission = Record<string, Record<string, string>>;
 type MetaByBlank = Record<string, BlankMeta>;
 type CheckResult = { passed: boolean; issues: string[] };
+export type CodeMissionExperienceProps = {
+  embedded?: boolean;
+  missionId?: number;
+  savedCodes?: string[];
+  onReview?: () => void;
+  onSubmit?: (code: string) => void;
+  onReset?: () => void;
+};
 
 const STORAGE_KEY = "line-core-code-screen-preview-v1";
+const PARAMETER_NAMES = ["base_speed", "target", "kp", "kd"] as const;
+const GLOBAL_SETTING_NAMES: Record<string, string> = {
+  black_value: "BLACK_VALUE",
+  white_value: "WHITE_VALUE",
+  base_speed: "BASE_SPEED",
+  target: "TARGET",
+  kp: "KP",
+  kd: "KD",
+};
 
 function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
@@ -71,6 +90,7 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
     lock: <><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>,
     refresh: <><path d="M20 11a8 8 0 1 0 2 5"/><path d="M20 4v7h-7"/></>,
     terminal: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3m6 0h4"/></>,
+    volume: <><path d="M11 5 6 9H3v6h3l5 4Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a8.5 8.5 0 0 1 0 12"/></>,
     x: <><path d="M6 6l12 12"/><path d="M18 6 6 18"/></>,
   };
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
@@ -152,7 +172,7 @@ function makeMissions(): PreviewMission[] {
   const conceptTargetHints: HintTier[] = [
     { label: "힌트 1/3", body: <>기준값은 검정과 흰색의 <b>중간</b>에 있어야 해요.</> },
     { label: "힌트 2/3", body: <>두 측정값을 먼저 더한 뒤 같은 비율로 나누는 <b>평균식</b>을 떠올려 보세요.</> },
-    { label: "힌트 3/3", body: <><code>black_value</code>와 <code>white_value</code>를 더한 뒤 <b>2로 나누는 식</b>이 필요해요.</> },
+    { label: "힌트 3/3 · 설정값 이름 확인", body: <>직접 입력할 식은 <code>(BLACK_VALUE + WHITE_VALUE) / 2</code>입니다.</> },
   ];
   const librarySensorHints: HintTier[] = [
     { label: "후보 함수", body: <>컬러 센서에는 <b>.reflection()</b> · <b>.color()</b> · <b>.ambient()</b> · <b>.hsv()</b>가 있어요. 그중 반사광 세기를 읽는 함수를 사용합니다.</> },
@@ -194,20 +214,20 @@ function makeMissions(): PreviewMission[] {
       codeHint: "변수 이름과 등호는 주어지고, 오른쪽 값만 직접 판단해 입력합니다.",
       fileName: "mission_02_memory.py",
       blanks: [
-        { id: "black_value", label: "검정 반사광", placeholder: "0~100 사이 값", kind: "number", width: "medium", validate: numberInRange(0, 100, "black_value") },
-        { id: "white_value", label: "흰색 반사광", placeholder: "검정보다 큰 값", kind: "number", width: "medium", validate: numberInRange(0, 100, "white_value") },
-        { id: "base_speed", label: "기본 속도", placeholder: "1~100 사이 값", kind: "number", width: "medium", validate: numberInRange(0, 100, "base_speed", false) },
-        { id: "target", label: "센서 기준값", placeholder: "두 반사광의 평균식", kind: "concept", width: "xlarge", validate: exactExpression("(black_value+white_value)/2", "target 식"), hintTiers: conceptTargetHints },
-        { id: "kp", label: "P 계수", placeholder: "0보다 크고 3 이하", kind: "number", width: "medium", validate: numberInRange(0, 3, "kp", false) },
-        { id: "kd", label: "D 계수", placeholder: "0~2 사이 값", kind: "number", width: "medium", validate: numberInRange(0, 2, "kd") },
+        { id: "black_value", label: "검정 반사광", placeholder: "0~100 사이 값", kind: "number", width: "medium", validate: numberInRange(0, 100, "BLACK_VALUE") },
+        { id: "white_value", label: "흰색 반사광", placeholder: "검정보다 큰 값", kind: "number", width: "medium", validate: numberInRange(0, 100, "WHITE_VALUE") },
+        { id: "base_speed", label: "기본 속도", placeholder: "1~100 사이 값", kind: "number", width: "medium", validate: numberInRange(0, 100, "BASE_SPEED", false) },
+        { id: "target", label: "센서 기준값", placeholder: "두 반사광의 평균식", kind: "concept", width: "xlarge", validate: exactExpression("(BLACK_VALUE+WHITE_VALUE)/2", "TARGET 식"), hintTiers: conceptTargetHints },
+        { id: "kp", label: "P 계수", placeholder: "0보다 크고 3 이하", kind: "number", width: "medium", validate: numberInRange(0, 3, "KP", false) },
+        { id: "kd", label: "D 계수", placeholder: "0~2 사이 값", kind: "number", width: "medium", validate: numberInRange(0, 2, "KD") },
       ],
       lines: [
-        { indent: 0, parts: [{ type: "text", value: "black_value = ", locked: true }, { type: "blank", blankId: "black_value" }] },
-        { indent: 0, parts: [{ type: "text", value: "white_value = ", locked: true }, { type: "blank", blankId: "white_value" }] },
-        { indent: 0, parts: [{ type: "text", value: "base_speed = ", locked: true }, { type: "blank", blankId: "base_speed" }] },
-        { indent: 0, parts: [{ type: "text", value: "target = ", locked: true }, { type: "blank", blankId: "target" }] },
-        { indent: 0, parts: [{ type: "text", value: "kp = ", locked: true }, { type: "blank", blankId: "kp" }] },
-        { indent: 0, parts: [{ type: "text", value: "kd = ", locked: true }, { type: "blank", blankId: "kd" }] },
+        { indent: 0, parts: [{ type: "text", value: "BLACK_VALUE = ", locked: true }, { type: "blank", blankId: "black_value" }] },
+        { indent: 0, parts: [{ type: "text", value: "WHITE_VALUE = ", locked: true }, { type: "blank", blankId: "white_value" }] },
+        { indent: 0, parts: [{ type: "text", value: "BASE_SPEED = ", locked: true }, { type: "blank", blankId: "base_speed" }] },
+        { indent: 0, parts: [{ type: "text", value: "TARGET = ", locked: true }, { type: "blank", blankId: "target" }] },
+        { indent: 0, parts: [{ type: "text", value: "KP = ", locked: true }, { type: "blank", blankId: "kp" }] },
+        { indent: 0, parts: [{ type: "text", value: "KD = ", locked: true }, { type: "blank", blankId: "kd" }] },
       ],
       tests: ["검정값 < 흰색값", "target은 두 값의 평균식", "Kp·Kd 허용 범위 확인"],
     },
@@ -224,7 +244,13 @@ function makeMissions(): PreviewMission[] {
       blanks: [
         {
           id: "params", label: "매개변수 네 개", placeholder: "이전 장의 변수 이름을 순서대로", kind: "self", width: "xlarge",
-          validate: (value) => normalizeCode(value) === "base_speed,target,kp,kd" ? null : "1장에서 사용한 네 변수 이름과 순서를 확인해 보세요.",
+          validate: (value) => {
+            const values = value.split(",").map((item) => normalizeCode(item));
+            const missingIndex = PARAMETER_NAMES.findIndex((_, index) => !values[index]);
+            if (missingIndex >= 0) return `${missingIndex + 1}번째 매개변수를 입력해 주세요.`;
+            const wrongIndex = PARAMETER_NAMES.findIndex((expected, index) => values[index] !== expected);
+            return wrongIndex < 0 ? null : `${wrongIndex + 1}번째 매개변수 이름과 순서를 다시 확인해 보세요.`;
+          },
         },
         { id: "loop", label: "반복 조건", placeholder: "항상 참인 값", kind: "concept", width: "medium", validate: (value) => stripInlineComment(value) === "True" ? null : "파이썬의 참 값은 대문자 T로 시작하는 True입니다.", hintTiers: [{ label: "반복 조건", body: <>조건이 계속 참이어야 하므로 파이썬의 불리언 값 <b>True</b>를 사용합니다.</> }] },
         { id: "sensor", label: "센서 읽기", placeholder: "반사광을 읽는 명령", kind: "library", width: "xlarge", validate: (value) => normalizeCode(value) === "color_sensor.reflection()" ? null : "센서 객체와 반사광 함수의 정확한 이름을 확인해 보세요.", hintTiers: librarySensorHints },
@@ -249,8 +275,8 @@ function makeMissions(): PreviewMission[] {
       codeHint: "왼쪽 변수는 주어지고, 오른쪽 계산식의 순서를 직접 입력합니다.",
       fileName: "mission_04_p_control.py",
       blanks: [
-        { id: "error", label: "오차 계산", placeholder: "기준값 - 현재값", kind: "concept", width: "large", validate: exactExpression("target-sensor_value", "error 식"), hintTiers: [{ label: "힌트 1/2", body: <>오차는 목표 기준값에서 현재 센서값을 뺀 값입니다.</> }, { label: "힌트 2/2", body: <><code>target</code>에서 <code>sensor_value</code>를 빼는 순서를 사용합니다.</> }] },
-        { id: "p_control", label: "P 제어", placeholder: "P 계수 × 현재 오차", kind: "concept", width: "large", validate: exactExpression("kp*error", "p_control 식"), hintTiers: [{ label: "힌트 1/2", body: <>P는 현재 오차에 비례하는 반응입니다.</> }, { label: "힌트 2/2", body: <><code>kp</code>와 <code>error</code>를 곱합니다.</> }] },
+        { id: "error", label: "오차 계산", placeholder: "기준값 - 현재값", kind: "concept", width: "large", validate: exactExpression("target-sensor_value", "error 식"), hintTiers: [{ label: "힌트 1/2", body: <>오차는 목표 기준값에서 현재 센서값을 뺀 값입니다.</> }, { label: "힌트 2/2 · 변수명 확인", body: <>직접 입력할 식은 <code>target - sensor_value</code>입니다.</> }] },
+        { id: "p_control", label: "P 제어", placeholder: "P 계수 × 현재 오차", kind: "concept", width: "large", validate: exactExpression("kp*error", "p_control 식"), hintTiers: [{ label: "힌트 1/2", body: <>P는 현재 오차에 비례하는 반응입니다.</> }, { label: "힌트 2/2 · 변수명 확인", body: <>직접 입력할 식은 <code>kp * error</code>입니다.</> }] },
       ],
       lines: [
         { indent: 2, parts: [{ type: "text", value: "error = ", locked: true }, { type: "blank", blankId: "error" }] },
@@ -269,8 +295,8 @@ function makeMissions(): PreviewMission[] {
       codeHint: "현재 오차를 먼저 쓰고 이전 오차를 뒤에 쓰는 순서를 유지합니다.",
       fileName: "mission_05_d_control.py",
       blanks: [
-        { id: "change", label: "변화량", placeholder: "현재 오차 - 이전 오차", kind: "concept", width: "large", validate: exactExpression("error-previous_error", "change 식"), hintTiers: [{ label: "힌트 1/2", body: <>변화량은 지금 오차와 직전 오차의 차이입니다.</> }, { label: "힌트 2/2", body: <><code>error</code>에서 <code>previous_error</code>를 뺍니다.</> }] },
-        { id: "d_control", label: "D 제어", placeholder: "D 계수 × 변화량", kind: "concept", width: "large", validate: exactExpression("kd*change", "d_control 식"), hintTiers: [{ label: "힌트 1/2", body: <>D는 오차 변화량에 반응합니다.</> }, { label: "힌트 2/2", body: <><code>kd</code>와 <code>change</code>를 곱합니다.</> }] },
+        { id: "change", label: "변화량", placeholder: "현재 오차 - 이전 오차", kind: "concept", width: "large", validate: exactExpression("error-previous_error", "change 식"), hintTiers: [{ label: "힌트 1/2", body: <>변화량은 지금 오차와 직전 오차의 차이입니다.</> }, { label: "힌트 2/2 · 변수명 확인", body: <>직접 입력할 식은 <code>error - previous_error</code>입니다.</> }] },
+        { id: "d_control", label: "D 제어", placeholder: "D 계수 × 변화량", kind: "concept", width: "large", validate: exactExpression("kd*change", "d_control 식"), hintTiers: [{ label: "힌트 1/2", body: <>D는 오차 변화량에 반응합니다.</> }, { label: "힌트 2/2 · 변수명 확인", body: <>직접 입력할 식은 <code>kd * change</code>입니다.</> }] },
       ],
       lines: [
         { indent: 2, parts: [{ type: "text", value: "change = ", locked: true }, { type: "blank", blankId: "change" }] },
@@ -289,10 +315,10 @@ function makeMissions(): PreviewMission[] {
       codeHint: "마지막 장에서는 식 전체를 직접 입력하고 모터 호출은 읽기 전용으로 제공합니다.",
       fileName: "mission_06_motor_link.py",
       blanks: [
-        { id: "correction", label: "PD 결합", placeholder: "P 반응 + D 반응", kind: "concept", width: "large", validate: exactExpression("p_control+d_control", "correction 식"), hintTiers: [{ label: "힌트", body: <>P와 D의 두 반응을 더해 하나의 보정값으로 만듭니다.</> }] },
-        { id: "left_power", label: "왼쪽 출력", placeholder: "기본 속도 + 보정값", kind: "concept", width: "large", validate: exactExpression("base_speed+correction", "left_power 식"), hintTiers: [{ label: "힌트", body: <>왼쪽 출력에는 보정값을 더합니다.</> }] },
-        { id: "right_power", label: "오른쪽 출력", placeholder: "기본 속도 - 보정값", kind: "concept", width: "large", validate: exactExpression("base_speed-correction", "right_power 식"), hintTiers: [{ label: "힌트", body: <>오른쪽 출력에는 같은 보정값을 뺍니다.</> }] },
-        { id: "previous_error", label: "이전 오차 저장", placeholder: "이번 반복의 현재 오차", kind: "concept", width: "medium", validate: exactExpression("error", "previous_error 식"), hintTiers: [{ label: "힌트", body: <>이번 반복의 <code>error</code>가 다음 반복에서는 이전 오차가 됩니다.</> }] },
+        { id: "correction", label: "PD 결합", placeholder: "P 반응 + D 반응", kind: "concept", width: "large", validate: exactExpression("p_control+d_control", "correction 식"), hintTiers: [{ label: "힌트 1/2", body: <>P와 D의 두 반응을 더해 하나의 보정값으로 만듭니다.</> }, { label: "힌트 2/2 · 변수명 확인", body: <>직접 입력할 식은 <code>p_control + d_control</code>입니다.</> }] },
+        { id: "left_power", label: "왼쪽 출력", placeholder: "기본 속도 + 보정값", kind: "concept", width: "large", validate: exactExpression("base_speed+correction", "left_power 식"), hintTiers: [{ label: "힌트 1/2", body: <>왼쪽 출력에는 기본 속도에 보정값을 더합니다.</> }, { label: "힌트 2/2 · 변수명 확인", body: <>직접 입력할 식은 <code>base_speed + correction</code>입니다.</> }] },
+        { id: "right_power", label: "오른쪽 출력", placeholder: "기본 속도 - 보정값", kind: "concept", width: "large", validate: exactExpression("base_speed-correction", "right_power 식"), hintTiers: [{ label: "힌트 1/2", body: <>오른쪽 출력에는 기본 속도에서 같은 보정값을 뺍니다.</> }, { label: "힌트 2/2 · 변수명 확인", body: <>직접 입력할 식은 <code>base_speed - correction</code>입니다.</> }] },
+        { id: "previous_error", label: "이전 오차 저장", placeholder: "이번 반복의 현재 오차", kind: "concept", width: "medium", validate: exactExpression("error", "previous_error 식"), hintTiers: [{ label: "힌트 · 변수명 확인", body: <>이번 반복의 <code>error</code>가 다음 반복에서는 이전 오차가 됩니다. 입력값은 <code>error</code>입니다.</> }] },
       ],
       lines: [
         { indent: 2, parts: [{ type: "text", value: "correction = ", locked: true }, { type: "blank", blankId: "correction" }] },
@@ -303,8 +329,10 @@ function makeMissions(): PreviewMission[] {
         { indent: 2, locked: true, note: "주어짐", parts: [{ type: "text", value: "right_motor.dc(right_power)", locked: true }] },
         { indent: 0, parts: [{ type: "text", value: "", locked: true }] },
         { indent: 2, parts: [{ type: "text", value: "previous_error = ", locked: true }, { type: "blank", blankId: "previous_error" }] },
+        { indent: 0, parts: [{ type: "text", value: "", locked: true }] },
+        { indent: 0, locked: true, note: "주어짐", parts: [{ type: "text", value: "line_follow(BASE_SPEED, TARGET, KP, KD)", locked: true }] },
       ],
-      tests: ["P + D 결합", "좌우 출력에 반대 부호", "모터 호출 및 이전 오차 저장"],
+      tests: ["P + D 결합", "좌우 출력에 반대 부호", "모터 호출·이전 오차 저장·함수 실행"],
     },
   ];
 }
@@ -327,6 +355,72 @@ function initialAnswers(): AnswersByMission {
   return Object.fromEntries(missions.map((mission) => [String(mission.id), Object.fromEntries(mission.blanks.map((blank) => [blank.id, ""]))]));
 }
 
+function answersFromSavedCodes(codes: string[] = []): AnswersByMission {
+  const result = initialAnswers();
+  const expression = (code: string, name: string) => assignmentExpression(code, name) ?? "";
+
+  const routeComments = (codes[0] ?? "")
+    .split("\n")
+    .map((line) => line.match(/^\s*#\s*(.+?)\s*$/)?.[1] ?? "")
+    .filter((line) => line && !line.includes("아래의 코드 입력"));
+  ["sensor", "error", "direction", "repeat"].forEach((name, index) => {
+    result["0"][name] = routeComments[index] ?? "";
+  });
+
+  const settingsCode = codes[1] ?? "";
+  Object.entries(GLOBAL_SETTING_NAMES).forEach(([blankId, settingName]) => {
+    result["1"][blankId] = expression(settingsCode, settingName);
+  });
+
+  const functionCode = codes[2] ?? "";
+  result["2"].params = functionCode.match(/def\s+line_follow\s*\(([^)]*)\)/)?.[1]?.trim() ?? "";
+  result["2"].loop = functionCode.match(/^\s*while\s+([^:]+)\s*:/m)?.[1]?.trim() ?? "";
+  result["2"].sensor = expression(functionCode, "sensor_value");
+
+  result["3"].error = expression(codes[3] ?? "", "error");
+  result["3"].p_control = expression(codes[3] ?? "", "p_control");
+  result["4"].change = expression(codes[4] ?? "", "change");
+  result["4"].d_control = expression(codes[4] ?? "", "d_control");
+  result["5"].correction = expression(codes[5] ?? "", "correction");
+  result["5"].left_power = expression(codes[5] ?? "", "left_power");
+  result["5"].right_power = expression(codes[5] ?? "", "right_power");
+  result["5"].previous_error = expression(codes[5] ?? "", "previous_error");
+  return result;
+}
+
+function restoredMeta(restoredAnswers: AnswersByMission): MetaByBlank {
+  const result = initialMeta();
+  missions.forEach((mission) => {
+    const missionAnswers = restoredAnswers[String(mission.id)] ?? {};
+    mission.blanks.forEach((blank) => {
+      const value = missionAnswers[blank.id] ?? "";
+      if (!value.trim()) return;
+      const error = blank.validate(value, { missionId: mission.id, answers: restoredAnswers });
+      result[blankKey(mission.id, blank.id)] = {
+        ...result[blankKey(mission.id, blank.id)],
+        status: error ? "invalid" : "valid",
+        touched: true,
+        error,
+      };
+    });
+    if (mission.id === 1) {
+      const blackValue = stripInlineComment(missionAnswers.black_value ?? "");
+      const whiteValue = stripInlineComment(missionAnswers.white_value ?? "");
+      const black = Number(blackValue);
+      const white = Number(whiteValue);
+      if (blackValue && whiteValue && Number.isFinite(black) && Number.isFinite(white) && black >= white) {
+        result[blankKey(1, "white_value")] = {
+          ...result[blankKey(1, "white_value")],
+          status: "invalid",
+          touched: true,
+          error: "흰색 반사광은 검정 반사광보다 큰 값이어야 해요.",
+        };
+      }
+    }
+  });
+  return result;
+}
+
 function buildGuidedCode(mission: PreviewMission, answers: Record<string, string>) {
   return mission.lines.map((line) => {
     const body = line.parts.map((part) => part.type === "text" ? part.value : (answers[part.blankId] ?? "")).join("");
@@ -335,7 +429,7 @@ function buildGuidedCode(mission: PreviewMission, answers: Record<string, string
 }
 
 function assignmentExpression(code: string, name: string) {
-  return code.match(new RegExp(`^\\s*${name}\\s*=\\s*([^#\\n]+)`, "m"))?.[1]?.trim() ?? null;
+  return code.match(new RegExp(`^[ \\t]*${name}[ \\t]*=[ \\t]*([^#\\n]*)`, "m"))?.[1]?.trim() ?? null;
 }
 
 function validateFreeMission(mission: PreviewMission, code: string): CheckResult {
@@ -352,8 +446,7 @@ function validateFreeMission(mission: PreviewMission, code: string): CheckResult
     return { passed: issues.length === 0, issues };
   }
   if (mission.id === 1) {
-    const names = ["black_value", "white_value", "base_speed", "target", "kp", "kd"];
-    const values = Object.fromEntries(names.map((name) => [name, assignmentExpression(executable, name) ?? ""]));
+    const values = Object.fromEntries(mission.blanks.map((blank) => [blank.id, assignmentExpression(executable, GLOBAL_SETTING_NAMES[blank.id]) ?? ""]));
     mission.blanks.forEach((blank) => {
       const error = blank.validate(values[blank.id], { missionId: mission.id, answers: { [String(mission.id)]: values } });
       if (error) issues.push(`${blank.label}: ${error}`);
@@ -442,47 +535,91 @@ function handleFreeEditorKeyDown(event: KeyboardEvent<HTMLTextAreaElement>, onCh
   }
 }
 
-export default function CodeScreenPreview() {
-  const [activeMissionId, setActiveMissionId] = useState(1);
+export function CodeMissionExperience({ embedded = false, missionId, savedCodes = [], onReview, onSubmit, onReset }: CodeMissionExperienceProps = {}) {
+  const [previewMissionId, setPreviewMissionId] = useState(1);
+  const activeMissionId = embedded && typeof missionId === "number" ? missionId : previewMissionId;
   const [mode, setMode] = useState<EditorMode>("guided");
-  const [answers, setAnswers] = useState<AnswersByMission>(() => initialAnswers());
-  const [meta, setMeta] = useState<MetaByBlank>(() => initialMeta());
+  const [answers, setAnswers] = useState<AnswersByMission>(() => embedded ? answersFromSavedCodes(savedCodes) : initialAnswers());
+  const [meta, setMeta] = useState<MetaByBlank>(() => embedded ? restoredMeta(answersFromSavedCodes(savedCodes)) : initialMeta());
   const [freeCodes, setFreeCodes] = useState<Record<string, string>>({});
   const [activeBlankId, setActiveBlankId] = useState<string | null>(null);
   const [result, setResult] = useState<CheckResult | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [bgmVolume, setBgmVolume] = useState(0.18);
+  const [bgmPlaying, setBgmPlaying] = useState(false);
+  const [expandedPrevious, setExpandedPrevious] = useState<Record<number, boolean>>({});
+  const [loaded, setLoaded] = useState(embedded);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const mission = missions[activeMissionId];
-  const missionAnswers = answers[String(activeMissionId)] ?? {};
+  const missionAnswers = useMemo(() => answers[String(activeMissionId)] ?? {}, [activeMissionId, answers]);
   const currentBlank = mission.blanks.find((blank) => blank.id === activeBlankId) ?? null;
   const currentMeta = currentBlank ? meta[blankKey(activeMissionId, currentBlank.id)] : null;
   const generatedCode = useMemo<string>(() => buildGuidedCode(mission, missionAnswers), [mission, missionAnswers]);
   const completedCount = mission.blanks.filter((blank) => meta[blankKey(activeMissionId, blank.id)]?.status === "valid").length;
+  const previousMissions = missions.filter((item) => item.id >= 1 && item.id < activeMissionId);
+  const previousLineCount = previousMissions.reduce((total, item) => total + item.lines.length, 0);
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as { answers?: AnswersByMission; freeCodes?: Record<string, string> };
-        if (parsed.answers) setAnswers((current) => ({ ...current, ...parsed.answers }));
-        if (parsed.freeCodes) setFreeCodes(parsed.freeCodes);
+    if (embedded) return;
+    let cancelled = false;
+    const loadSavedState = window.setTimeout(() => {
+      if (cancelled) return;
+      let savedAnswers: AnswersByMission | undefined;
+      let savedFreeCodes: Record<string, string> | undefined;
+      let savedBgmVolume: number | undefined;
+      try {
+        const saved = window.localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved) as { answers?: AnswersByMission; freeCodes?: Record<string, string>; bgmVolume?: number };
+          savedAnswers = parsed.answers;
+          savedFreeCodes = parsed.freeCodes;
+          savedBgmVolume = parsed.bgmVolume;
+        }
+      } catch {
+        window.localStorage.removeItem(STORAGE_KEY);
       }
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-    setLoaded(true);
-  }, []);
+      if (savedAnswers) {
+        const restoredAnswers = { ...initialAnswers(), ...savedAnswers };
+        setAnswers(restoredAnswers);
+        setMeta(restoredMeta(restoredAnswers));
+      }
+      if (savedFreeCodes) setFreeCodes(savedFreeCodes);
+      if (typeof savedBgmVolume === "number" && savedBgmVolume >= 0 && savedBgmVolume <= 1) setBgmVolume(savedBgmVolume);
+      setLoaded(true);
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(loadSavedState);
+    };
+  }, [embedded]);
 
   useEffect(() => {
-    if (!loaded) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ answers, freeCodes }));
-  }, [answers, freeCodes, loaded]);
+    if (!loaded || embedded) return;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ answers, freeCodes, bgmVolume }));
+  }, [answers, bgmVolume, embedded, freeCodes, loaded]);
 
   useEffect(() => {
-    setResult(null);
-    setActiveBlankId(null);
-  }, [activeMissionId, mode]);
+    if (embedded) return;
+    if (audioRef.current) audioRef.current.volume = bgmVolume;
+  }, [bgmVolume, embedded]);
+
+  useEffect(() => {
+    if (!loaded || embedded) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+    const startBgm = () => {
+      if (audio.paused) void audio.play().then(() => setBgmPlaying(true)).catch(() => setBgmPlaying(false));
+      else setBgmPlaying(true);
+    };
+    startBgm();
+    window.addEventListener("pointerdown", startBgm, { once: true });
+    window.addEventListener("keydown", startBgm, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", startBgm);
+      window.removeEventListener("keydown", startBgm);
+    };
+  }, [embedded, loaded]);
 
   function getBlankMeta(blankId: string) {
     return meta[blankKey(activeMissionId, blankId)] ?? { status: "idle", touched: false, wrongAttempts: 0, hintTier: 0, hintOpen: false, pulse: false, error: null };
@@ -502,8 +639,24 @@ export default function CodeScreenPreview() {
     setResult(null);
   }
 
+  function parameterValues() {
+    const values = (missionAnswers.params ?? "").split(",");
+    return PARAMETER_NAMES.map((_, index) => values[index]?.trim() ?? "");
+  }
+
+  function updateParameterAnswer(index: number, value: string) {
+    const values = parameterValues();
+    values[index] = value.replace(/,/g, "");
+    updateAnswer("params", values.join(", "));
+  }
+
+  function focusParameter(index: number) {
+    requestAnimationFrame(() => inputRefs.current[`${blankKey(activeMissionId, "params")}:${index}`]?.focus());
+  }
+
   function validateBlank(blank: BlankSpec, value = missionAnswers[blank.id] ?? "", reportWrong = false) {
     const error = blank.validate(value, { missionId: activeMissionId, answers });
+    const hasHints = blank.kind === "self" || Boolean(blank.hintTiers?.length);
     setBlankMeta(blank.id, (current) => {
       const wrongAttempts = error && reportWrong ? current.wrongAttempts + 1 : current.wrongAttempts;
       return {
@@ -512,9 +665,9 @@ export default function CodeScreenPreview() {
         status: error ? "invalid" : "valid",
         error,
         wrongAttempts,
-        pulse: Boolean(error && wrongAttempts === 1 && blank.hintTiers?.length),
-        hintOpen: Boolean(error && wrongAttempts >= 2 && blank.hintTiers?.length) || current.hintOpen,
-        hintTier: error && wrongAttempts >= 2 && blank.hintTiers?.length && current.hintTier === 0 ? 1 : current.hintTier,
+        pulse: Boolean(error && wrongAttempts === 1 && hasHints),
+        hintOpen: Boolean(error && wrongAttempts >= 2 && hasHints) || current.hintOpen,
+        hintTier: error && wrongAttempts >= 2 && hasHints && current.hintTier === 0 ? 1 : current.hintTier,
       };
     });
     return error;
@@ -537,6 +690,7 @@ export default function CodeScreenPreview() {
     if (mode === "free") {
       const checked = validateFreeMission(mission, freeCodes[String(activeMissionId)] ?? "");
       setResult(checked);
+      if (checked.passed && embedded) onSubmit?.(freeCodes[String(activeMissionId)] ?? "");
       return;
     }
     const issues = mission.blanks.flatMap((blank) => {
@@ -544,7 +698,9 @@ export default function CodeScreenPreview() {
       return error ? [`${blank.label}: ${error}`] : [];
     });
     issues.push(...crossValidateGuided());
-    setResult({ passed: issues.length === 0, issues });
+    const checked = { passed: issues.length === 0, issues };
+    setResult(checked);
+    if (checked.passed && embedded) onSubmit?.(generatedCode);
   }
 
   function focusBlank(blankId: string) {
@@ -579,13 +735,18 @@ export default function CodeScreenPreview() {
     if (blank.kind !== "self") return blank.hintTiers ?? [];
     const previous = answers["1"] ?? {};
     const code = ["black_value", "white_value", "base_speed", "target", "kp", "kd"]
-      .map((name) => `${name} = ${previous[name]?.trim() || "?"}`)
+      .map((name) => `${GLOBAL_SETTING_NAMES[name]} = ${previous[name]?.trim() || "?"}`)
       .join("\n");
     const ready = ["base_speed", "target", "kp", "kd"].every((name) => previous[name]?.trim());
-    return [{
+    const tiers: HintTier[] = [{
       label: "참고 · 1장에서 내가 쓴 코드",
       body: <><pre>{code}</pre><p>{ready ? "이 중 line_follow에 전달해야 하는 네 값의 이름만 순서대로 괄호 안에 넣어 보세요." : "아직 비어 있는 값이 있어요. 1장을 먼저 완성한 뒤 다시 참고해 주세요."}</p></>,
     }];
+    if (ready) tiers.push({
+      label: "마지막 힌트 · 순서 확인",
+      body: <>대문자 설정값 <code>BASE_SPEED, TARGET, KP, KD</code>를 전달받을 매개변수는 <code>base_speed, target, kp, kd</code> 순서로 입력합니다.</>,
+    });
+    return tiers;
   }
 
   function resetMission() {
@@ -598,6 +759,7 @@ export default function CodeScreenPreview() {
     });
     setResult(null);
     setActiveBlankId(null);
+    if (embedded) onReset?.();
   }
 
   function changeMode(next: EditorMode) {
@@ -607,29 +769,59 @@ export default function CodeScreenPreview() {
       setFreeCodes((current) => ({ ...current, [String(activeMissionId)]: hasGuidedWork ? generatedCode : "" }));
     }
     setMode(next);
+    setResult(null);
+    setActiveBlankId(null);
+  }
+
+  function selectMission(nextMissionId: number) {
+    if (nextMissionId === activeMissionId) return;
+    setPreviewMissionId(nextMissionId);
+    setResult(null);
+    setActiveBlankId(null);
+  }
+
+  function togglePreviousMission(missionId: number) {
+    setExpandedPrevious((current) => ({ ...current, [missionId]: !current[missionId] }));
   }
 
   const activeHintTiers = currentBlank ? hintTiersFor(currentBlank) : [];
   const activeHint = currentBlank && currentMeta?.hintOpen && currentMeta.hintTier > 0 ? activeHintTiers[currentMeta.hintTier - 1] : null;
 
-  return <main className={styles.page}>
-    <div className={styles.backgroundGrid} aria-hidden="true"/>
-    <header className={styles.hud}>
-      <a className={styles.brand} href="/" aria-label="라인 코어 아카데미 홈">
-        <img src="/assets/playwell-logo.png" alt="PLAYWELL"/>
+  function toggleBgm() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) void audio.play().then(() => setBgmPlaying(true)).catch(() => setBgmPlaying(false));
+    else {
+      audio.pause();
+      setBgmPlaying(false);
+    }
+  }
+
+  return <div className={`${styles.page} ${embedded ? styles.embedded : ""}`}>
+    {!embedded ? <audio ref={audioRef} src="/assets/line-core-reboot.mp3" loop preload="auto" autoPlay onPlay={() => setBgmPlaying(true)} onPause={() => setBgmPlaying(false)}/> : null}
+    {!embedded ? <div className={styles.backgroundGrid} aria-hidden="true"/> : null}
+    {!embedded ? <header className={styles.hud}>
+      <Link className={styles.brand} href="/" aria-label="라인 코어 아카데미 홈">
+        <Image src="/assets/playwell-logo.png" alt="PLAYWELL" width={806} height={213} priority unoptimized/>
         <span><small>USER TEST PREVIEW</small><b>CODE SCREEN REDESIGN</b></span>
-      </a>
-      <div className={styles.hudMission}><small>{mission.shortChapter}</small><b>{mission.chapter}</b><span>{activeMissionId + 1} / {missions.length}</span></div>
-      <div className={styles.previewBadge}><Icon name="terminal" size={15}/><span>PREVIEW BRANCH</span></div>
-    </header>
+      </Link>
+      <div className={styles.hudMission} aria-label="미션 이동">
+        <button className={styles.missionBack} disabled={activeMissionId === 0} onClick={() => selectMission(activeMissionId - 1)} aria-label="이전 미션"><Icon name="arrow" size={13}/></button>
+        <div><small>{mission.shortChapter}</small><b>{mission.chapter}</b></div>
+        <span>{activeMissionId + 1} / {missions.length}</span>
+        <button disabled={activeMissionId === missions.length - 1} onClick={() => selectMission(activeMissionId + 1)} aria-label="다음 미션"><Icon name="arrow" size={13}/></button>
+      </div>
+      <div className={styles.hudActions}>
+        <div className={styles.bgmControl}>
+          <button type="button" onClick={toggleBgm} aria-label={bgmPlaying ? "배경음 일시 정지" : "배경음 재생"} aria-pressed={bgmPlaying}><Icon name="volume" size={15}/><span>{bgmPlaying ? "BGM" : "BGM 꺼짐"}</span></button>
+          <label><span>음량</span><input aria-label="배경음 음량" type="range" min="0" max="1" step="0.05" value={bgmVolume} onChange={(event: { target: { value: string } }) => setBgmVolume(Number(event.target.value))}/></label>
+        </div>
+        <Link className={styles.returnLink} href="/"><Icon name="arrow" size={14}/><span>기존 게임으로 돌아가기</span></Link>
+        <div className={styles.previewBadge}><Icon name="terminal" size={15}/><span>개선안 테스트</span></div>
+      </div>
+    </header> : null}
 
     <section className={styles.shell}>
-      <nav className={styles.missionRail} aria-label="코드 작성 미션 선택">
-        {missions.map((item) => <button key={item.id} className={`${styles.missionTab} ${item.id === activeMissionId ? styles.missionTabActive : ""}`} onClick={() => setActiveMissionId(item.id)}>
-          <span>{String(item.id + 1).padStart(2, "0")}</span><div><small>{item.shortChapter}</small><b>{item.title}</b></div>
-        </button>)}
-      </nav>
-
       <section className={styles.stage}>
         <div className={styles.activityHead}>
           <span className={styles.activityIcon}><Icon name="code" size={23}/></span>
@@ -637,42 +829,102 @@ export default function CodeScreenPreview() {
           <button className={styles.resetButton} onClick={resetMission}><Icon name="refresh" size={15}/>이 미션 초기화</button>
         </div>
 
-        <div className={styles.learningReason}><span><Icon name="book" size={18}/></span><div><small>MISSION GOAL</small><b>{mission.goal}</b></div></div>
+        <section className={styles.writingRoute} aria-label="작성 순서">
+          <header><span><Icon name="book" size={17}/></span><b>작성 순서</b></header>
+          <div className={styles.routeProgress}><i style={{ width: `${mission.blanks.length ? (completedCount / mission.blanks.length) * 100 : 0}%` }}/></div>
+          <div className={styles.routeItems}>
+            {mission.blanks.map((blank, index) => {
+              const itemMeta = getBlankMeta(blank.id);
+              return <button key={blank.id} className={`${styles.routeItem} ${styles[`status_${itemMeta.status}`]} ${activeBlankId === blank.id ? styles.routeItemActive : ""}`} onClick={() => focusBlank(blank.id)}>
+                <span>{itemMeta.status === "valid" ? <Icon name="check" size={13}/> : String(index + 1).padStart(2, "0")}</span>
+                <b>{blank.label}</b>
+                <em>{itemMeta.status === "valid" ? "완료" : itemMeta.status === "invalid" ? "확인" : itemMeta.status === "editing" ? "입력중" : "대기"}</em>
+              </button>;
+            })}
+          </div>
+        </section>
 
         <div className={styles.codeWorkspace}>
-          <aside className={styles.checklist}>
-            <header><small>WRITING ROUTE</small><b>작성 순서</b><span>{completedCount} / {mission.blanks.length}</span></header>
-            <div className={styles.checklistProgress}><i style={{ width: `${mission.blanks.length ? (completedCount / mission.blanks.length) * 100 : 0}%` }}/></div>
-            <div className={styles.checkItems}>
-              {mission.blanks.map((blank, index) => {
-                const itemMeta = getBlankMeta(blank.id);
-                return <button key={blank.id} className={`${styles.checkItem} ${styles[`status_${itemMeta.status}`]} ${activeBlankId === blank.id ? styles.checkItemActive : ""}`} onClick={() => focusBlank(blank.id)}>
-                  <span>{itemMeta.status === "valid" ? <Icon name="check" size={14}/> : String(index + 1).padStart(2, "0")}</span>
-                  <div><small>{blank.kind === "number" ? "판단형" : blank.kind === "concept" ? "개념형" : blank.kind === "self" ? "자기참조" : blank.kind === "library" ? "라이브러리" : "입력"}</small><b>{blank.label}</b></div>
-                  <em>{itemMeta.status === "valid" ? "완료" : itemMeta.status === "invalid" ? "확인" : itemMeta.status === "editing" ? "입력중" : "대기"}</em>
-                </button>;
-              })}
-            </div>
-            <div className={styles.legend}><span><i className={styles.legendDone}/>완료</span><span><i className={styles.legendWriting}/>입력중</span><span><i className={styles.legendWaiting}/>대기</span><span><Icon name="lock" size={11}/>주어짐</span></div>
-          </aside>
-
           <section className={styles.editorPanel}>
             <div className={styles.editorTop}>
-              <span/><span/><span/><b>{mission.fileName}</b>
-              <div className={styles.modeTabs}><button className={mode === "guided" ? styles.modeActive : ""} onClick={() => changeMode("guided")}><Icon name="book" size={13}/>빈칸 가이드</button><button className={mode === "free" ? styles.modeActive : ""} onClick={() => changeMode("free")}><Icon name="code" size={13}/>자유 작성</button></div>
+              <span/><span/><span/><b>{activeMissionId === 0 ? mission.fileName : "line_follow.py"}</b>
             </div>
 
             {mode === "guided" ? <div className={styles.guidedEditor}>
-              <div className={styles.editorNotice}><span><Icon name="light" size={14}/>코드 흐름 안의 빈칸만 직접 타이핑하세요.</span><b>Tab · Shift+Tab으로 빈칸 이동</b></div>
+              <div className={styles.editorNotice}><span><Icon name="light" size={14}/>이전 코드를 펼쳐 흐름을 확인하고, 현재 미션의 빈칸만 타이핑하세요.</span><b>Tab · Shift+Tab으로 빈칸 이동</b></div>
               <div className={styles.codeLines}>
+                {previousMissions.map((previousMission, previousIndex) => {
+                  const firstLine = previousMissions.slice(0, previousIndex).reduce((total, item) => total + item.lines.length, 0) + 1;
+                  const isOpen = Boolean(expandedPrevious[previousMission.id]);
+                  return <section key={previousMission.id} className={styles.previousMission}>
+                    <button className={styles.previousToggle} onClick={() => togglePreviousMission(previousMission.id)} aria-expanded={isOpen} aria-controls={`previous-code-${previousMission.id}`}>
+                      <span><Icon name="arrow" size={12}/></span><b>{previousMission.chapter}</b><em>{previousMission.lines.length}줄</em><small>{isOpen ? "접기" : "펼치기"}</small>
+                    </button>
+                    {isOpen ? <div id={`previous-code-${previousMission.id}`} className={styles.previousCodeLines}>
+                      {previousMission.lines.map((line, lineIndex) => <div key={`${previousMission.id}-${lineIndex}`} className={`${styles.codeLine} ${styles.previousCodeLine} ${line.locked ? styles.lockedLine : ""}`}>
+                        <span className={styles.lineNumber}>{firstLine + lineIndex}</span>
+                        <div className={styles.lineBody} style={{ paddingLeft: `${16 + line.indent * 28}px` }}>
+                          {line.parts.map((part, partIndex) => part.type === "text"
+                            ? <span key={partIndex} className={part.value.trim() ? styles.lockedText : ""}>{part.value}</span>
+                            : <span key={partIndex} className={styles.previousValue}>{answers[String(previousMission.id)]?.[part.blankId]?.trim() || "___"}</span>)}
+                          {line.note ? <em className={styles.givenBadge}><Icon name="lock" size={10}/>{line.note}</em> : null}
+                        </div>
+                      </div>)}
+                    </div> : null}
+                  </section>;
+                })}
+                {previousMissions.length ? <div className={styles.currentCodeDivider}><span>현재 미션</span><b>{mission.chapter}</b></div> : null}
                 {mission.lines.map((line, lineIndex) => <div key={`${lineIndex}-${line.indent}`} className={`${styles.codeLine} ${line.locked ? styles.lockedLine : ""}`}>
-                  <span className={styles.lineNumber}>{lineIndex + 1}</span>
+                  <span className={styles.lineNumber}>{previousLineCount + lineIndex + 1}</span>
                   <div className={styles.lineBody} style={{ paddingLeft: `${16 + line.indent * 28}px` }}>
                     {line.parts.map((part, partIndex) => {
-                      if (part.type === "text") return <span key={partIndex} className={part.locked && part.value.trim() ? styles.lockedText : ""}>{part.value}{part.locked && part.value.trim() && line.locked ? <Icon name="lock" size={10}/> : null}</span>;
+                      if (part.type === "text") return <span key={partIndex} className={part.locked && part.value.trim() ? styles.lockedText : ""}>{part.value}</span>;
                       const blank = mission.blanks.find((item) => item.id === part.blankId)!;
                       const itemMeta = getBlankMeta(blank.id);
                       const hasHint = blank.kind === "self" || Boolean(blank.hintTiers?.length);
+                      if (activeMissionId === 2 && blank.id === "params") {
+                        const values = parameterValues();
+                        return <span key={partIndex} className={`${styles.blankWrap} ${styles.paramGroup}`}>
+                          {PARAMETER_NAMES.map((expected, parameterIndex) => {
+                            const value = values[parameterIndex];
+                            const segmentStatus: BlankStatus = !value ? "idle" : normalizeCode(value) === expected ? "valid" : itemMeta.status === "invalid" ? "invalid" : "editing";
+                            return <span key={expected} className={styles.paramSlot}>
+                              <input
+                                ref={(node: HTMLInputElement | null) => {
+                                  inputRefs.current[`${blankKey(activeMissionId, blank.id)}:${parameterIndex}`] = node;
+                                  if (parameterIndex === 0) inputRefs.current[blankKey(activeMissionId, blank.id)] = node;
+                                }}
+                                className={`${styles.blankInput} ${styles.paramInput} ${styles[`input_${segmentStatus}`]}`}
+                                value={value}
+                                placeholder={`${parameterIndex + 1}번째`}
+                                aria-label={`${parameterIndex + 1}번째 매개변수`}
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                                spellCheck={false}
+                                onFocus={() => { setActiveBlankId(blank.id); setBlankMeta(blank.id, (current) => ({ ...current, status: values.some(Boolean) ? "editing" : current.status })); }}
+                                onChange={(event: { target: { value: string } }) => updateParameterAnswer(parameterIndex, event.target.value)}
+                                onBlur={() => { if (parameterValues().every(Boolean)) validateBlank(blank); }}
+                                onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                                  if (event.key === "Tab") {
+                                    if (event.shiftKey && parameterIndex === 0) return;
+                                    event.preventDefault();
+                                    if (event.shiftKey) focusParameter(parameterIndex - 1);
+                                    else if (parameterIndex < PARAMETER_NAMES.length - 1) focusParameter(parameterIndex + 1);
+                                    else moveBlank(blank.id, 1);
+                                  }
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    if (parameterIndex < PARAMETER_NAMES.length - 1) focusParameter(parameterIndex + 1);
+                                    else { validateBlank(blank); moveBlank(blank.id, 1); }
+                                  }
+                                }}
+                              />
+                              {parameterIndex < PARAMETER_NAMES.length - 1 ? <span className={styles.paramComma}>,</span> : null}
+                            </span>;
+                          })}
+                          {hasHint ? <button className={`${styles.hintButton} ${itemMeta.pulse ? styles.hintPulse : ""} ${itemMeta.hintOpen ? styles.hintButtonOpen : ""}`} onMouseDown={(event: { preventDefault(): void }) => event.preventDefault()} onClick={() => toggleHint(blank)} aria-label={`${blank.label} 힌트`}>?</button> : null}
+                        </span>;
+                      }
                       return <span key={partIndex} className={styles.blankWrap}>
                         <input
                           ref={(node: HTMLInputElement | null) => { inputRefs.current[blankKey(activeMissionId, blank.id)] = node; }}
@@ -724,21 +976,20 @@ export default function CodeScreenPreview() {
           </section>
         </div>
 
-        <section className={styles.testStrip}>
-          <div><small>VALIDATION POLICY</small><b>이번 화면에서 확인하는 기준</b></div>
-          {mission.tests.map((test) => <span key={test}><Icon name="check" size={13}/>{test}</span>)}
-        </section>
-
         {result ? <section className={`${styles.resultPanel} ${result.passed ? styles.resultSuccess : styles.resultError}`} aria-live="polite">
           <span>{result.passed ? <Icon name="check" size={22}/> : <Icon name="terminal" size={22}/>}</span>
           <div><small>{result.passed ? "ALL TESTS PASSED" : "REPAIR REPORT"}</small><h2>{result.passed ? "작성한 코드가 검사를 통과했습니다" : "고칠 위치를 확인해 주세요"}</h2>{result.passed ? <p>공백, 인라인 주석, 0과 0.0처럼 채점 대상이 아닌 차이는 정규화하고 핵심 구조와 순서는 그대로 확인했습니다.</p> : <ul>{result.issues.slice(0, 5).map((issue) => <li key={issue}>{issue}</li>)}</ul>}</div>
         </section> : null}
 
         <div className={styles.actions}>
-          <button className={styles.secondaryAction} onClick={resetMission}><Icon name="refresh" size={16}/>현재 미션 다시 작성</button>
+          {embedded ? <button className={styles.secondaryAction} onClick={onReview}><Icon name="book" size={16}/>배운 개념 다시보기</button> : <button className={styles.secondaryAction} onClick={resetMission}><Icon name="refresh" size={16}/>현재 미션 다시 작성</button>}
           <button className={styles.primaryAction} onClick={runCheck}><span><Icon name="terminal" size={17}/></span>코드 검사하기 <Icon name="arrow" size={18}/></button>
         </div>
       </section>
     </section>
-  </main>;
+  </div>;
+}
+
+export default function CodeScreenPreview() {
+  return <CodeMissionExperience/>;
 }
