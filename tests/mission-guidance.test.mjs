@@ -64,6 +64,7 @@ test("the concept dictionary covers the requested learning map and is globally r
   assert.match(learningContent, /title:"현재 오차에 반응하는 P 제어"/);
   assert.match(learningContent, /title:"오차 변화를 다듬는 D 제어"/);
   assert.match(learningContent, /매개변수의 이름과 순서는 파이썬 전체의 절대 규칙이 아닙니다/);
+  assert.match(learningContent, /BASE_SPEED → base_speed · TARGET → target · KP → kp · KD → kd/);
   assert.match(source, /function ConceptDictionary/);
   assert.match(source, /`glossaryButton \$\{className\}`/);
   assert.match(source, /<GlossaryButton className="titleGlossary"/);

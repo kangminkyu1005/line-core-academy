@@ -538,12 +538,13 @@ function handleFreeEditorKeyDown(event: KeyboardEvent<HTMLTextAreaElement>, onCh
 export function CodeMissionExperience({ embedded = false, missionId, savedCodes = [], onReview, onSubmit, onReset }: CodeMissionExperienceProps = {}) {
   const [previewMissionId, setPreviewMissionId] = useState(1);
   const activeMissionId = embedded && typeof missionId === "number" ? missionId : previewMissionId;
-  const [mode, setMode] = useState<EditorMode>("guided");
+  const [mode] = useState<EditorMode>("guided");
   const [answers, setAnswers] = useState<AnswersByMission>(() => embedded ? answersFromSavedCodes(savedCodes) : initialAnswers());
   const [meta, setMeta] = useState<MetaByBlank>(() => embedded ? restoredMeta(answersFromSavedCodes(savedCodes)) : initialMeta());
   const [freeCodes, setFreeCodes] = useState<Record<string, string>>({});
   const [activeBlankId, setActiveBlankId] = useState<string | null>(null);
   const [result, setResult] = useState<CheckResult | null>(null);
+  const [helperPanelOpen, setHelperPanelOpen] = useState(false);
   const [bgmVolume, setBgmVolume] = useState(0.18);
   const [bgmPlaying, setBgmPlaying] = useState(false);
   const [expandedPrevious, setExpandedPrevious] = useState<Record<number, boolean>>({});
@@ -621,6 +622,22 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
     };
   }, [embedded, loaded]);
 
+  useEffect(() => {
+    if (!helperPanelOpen) return;
+    const handleEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setHelperPanelOpen(false);
+      if (activeBlankId) {
+        const key = blankKey(activeMissionId, activeBlankId);
+        setMeta((current) => current[key] ? ({ ...current, [key]: { ...current[key], hintOpen: false } }) : current);
+        requestAnimationFrame(() => inputRefs.current[key]?.focus());
+      }
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [activeBlankId, activeMissionId, helperPanelOpen]);
+
   function getBlankMeta(blankId: string) {
     return meta[blankKey(activeMissionId, blankId)] ?? { status: "idle", touched: false, wrongAttempts: 0, hintTier: 0, hintOpen: false, pulse: false, error: null };
   }
@@ -637,6 +654,7 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
     }));
     setBlankMeta(blankId, (current) => ({ ...current, status: value.trim() ? "editing" : "idle", touched: true, error: null }));
     setResult(null);
+    if (blankId === activeBlankId) setHelperPanelOpen(false);
   }
 
   function parameterValues() {
@@ -666,8 +684,8 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
         error,
         wrongAttempts,
         pulse: Boolean(error && wrongAttempts === 1 && hasHints),
-        hintOpen: Boolean(error && wrongAttempts >= 2 && hasHints) || current.hintOpen,
-        hintTier: error && wrongAttempts >= 2 && hasHints && current.hintTier === 0 ? 1 : current.hintTier,
+        hintOpen: error && reportWrong ? false : current.hintOpen,
+        hintTier: current.hintTier,
       };
     });
     return error;
@@ -690,21 +708,32 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
     if (mode === "free") {
       const checked = validateFreeMission(mission, freeCodes[String(activeMissionId)] ?? "");
       setResult(checked);
+      setHelperPanelOpen(false);
       if (checked.passed && embedded) onSubmit?.(freeCodes[String(activeMissionId)] ?? "");
       return;
     }
-    const issues = mission.blanks.flatMap((blank) => {
+    const issues: string[] = [];
+    let firstInvalidBlankId: string | null = null;
+    mission.blanks.forEach((blank) => {
       const error = validateBlank(blank, missionAnswers[blank.id] ?? "", true);
-      return error ? [`${blank.label}: ${error}`] : [];
+      if (!error) return;
+      if (!firstInvalidBlankId) firstInvalidBlankId = blank.id;
+      issues.push(`${blank.label}: ${error}`);
     });
-    issues.push(...crossValidateGuided());
+    const crossIssues = crossValidateGuided();
+    issues.push(...crossIssues);
+    if (!firstInvalidBlankId && crossIssues.length) firstInvalidBlankId = "white_value";
     const checked = { passed: issues.length === 0, issues };
     setResult(checked);
+    setHelperPanelOpen(!checked.passed);
+    if (firstInvalidBlankId) setActiveBlankId(firstInvalidBlankId);
     if (checked.passed && embedded) onSubmit?.(generatedCode);
   }
 
   function focusBlank(blankId: string) {
     setActiveBlankId(blankId);
+    const targetMeta = getBlankMeta(blankId);
+    setHelperPanelOpen(Boolean(targetMeta.error || targetMeta.hintOpen));
     requestAnimationFrame(() => {
       const input = inputRefs.current[blankKey(activeMissionId, blankId)];
       input?.focus();
@@ -725,8 +754,11 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
 
   function toggleHint(blank: BlankSpec) {
     if (!blank.hintTiers?.length && blank.kind !== "self") return;
+    const current = getBlankMeta(blank.id);
+    const nextOpen = !current.hintOpen;
     setActiveBlankId(blank.id);
-    setBlankMeta(blank.id, (current) => ({ ...current, hintOpen: !current.hintOpen, hintTier: current.hintTier || 1, pulse: false }));
+    setHelperPanelOpen(nextOpen || Boolean(current.error));
+    setBlankMeta(blank.id, (item) => ({ ...item, hintOpen: nextOpen, hintTier: item.hintTier || 1, pulse: false }));
   }
 
   function nextHint(blank: BlankSpec, tiers: HintTier[]) {
@@ -734,6 +766,14 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
       if (current.hintTier >= tiers.length) return { ...current, hintOpen: false, hintTier: 0 };
       return { ...current, hintTier: current.hintTier + 1, hintOpen: true };
     });
+  }
+
+  function closeHelperPanel() {
+    setHelperPanelOpen(false);
+    if (activeBlankId) {
+      setBlankMeta(activeBlankId, (current) => ({ ...current, hintOpen: false }));
+      requestAnimationFrame(() => inputRefs.current[blankKey(activeMissionId, activeBlankId)]?.focus());
+    }
   }
 
   function hintTiersFor(blank: BlankSpec): HintTier[] {
@@ -764,18 +804,8 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
     });
     setResult(null);
     setActiveBlankId(null);
+    setHelperPanelOpen(false);
     if (embedded) onReset?.();
-  }
-
-  function changeMode(next: EditorMode) {
-    if (next === mode) return;
-    if (next === "free" && !(freeCodes[String(activeMissionId)] ?? "").trim()) {
-      const hasGuidedWork = Object.values(missionAnswers).some((value) => value.trim());
-      setFreeCodes((current) => ({ ...current, [String(activeMissionId)]: hasGuidedWork ? generatedCode : "" }));
-    }
-    setMode(next);
-    setResult(null);
-    setActiveBlankId(null);
   }
 
   function selectMission(nextMissionId: number) {
@@ -783,6 +813,7 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
     setPreviewMissionId(nextMissionId);
     setResult(null);
     setActiveBlankId(null);
+    setHelperPanelOpen(false);
   }
 
   function togglePreviousMission(missionId: number) {
@@ -791,6 +822,7 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
 
   const activeHintTiers = currentBlank ? hintTiersFor(currentBlank) : [];
   const activeHint = currentBlank && currentMeta?.hintOpen && currentMeta.hintTier > 0 ? activeHintTiers[currentMeta.hintTier - 1] : null;
+  const helperVisible = Boolean(helperPanelOpen && currentBlank && (currentMeta?.error || currentMeta?.hintOpen));
 
   function toggleBgm() {
     const audio = audioRef.current;
@@ -855,7 +887,7 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
               <span/><span/><span/><b>{activeMissionId === 0 ? mission.fileName : "line_follow.py"}</b>
             </div>
 
-            {mode === "guided" ? <div className={styles.guidedEditor}>
+            {mode === "guided" ? <div className={`${styles.guidedEditor} ${helperVisible ? styles.guidedEditorWithHelper : ""}`}>
               <div className={styles.editorNotice}><span><Icon name="light" size={14}/>이전 코드를 펼쳐 흐름을 확인하고, 현재 미션의 빈칸만 타이핑하세요.</span><b>Tab · Shift+Tab으로 빈칸 이동</b></div>
               <div className={styles.codeLines}>
                 {previousMissions.map((previousMission, previousIndex) => {
@@ -901,12 +933,14 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
                                 }}
                                 className={`${styles.blankInput} ${styles.paramInput} ${styles[`input_${segmentStatus}`]}`}
                                 value={value}
-                                placeholder={`${parameterIndex + 1}번째`}
-                                aria-label={`${parameterIndex + 1}번째 매개변수`}
+                                 placeholder={`${parameterIndex + 1}번째`}
+                                 aria-label={`${parameterIndex + 1}번째 매개변수`}
+                                 aria-invalid={Boolean(itemMeta.error)}
+                                 aria-describedby={itemMeta.error ? `blank-error-${activeMissionId}-${blank.id}` : undefined}
                                 autoCapitalize="none"
                                 autoCorrect="off"
                                 spellCheck={false}
-                                onFocus={() => { setActiveBlankId(blank.id); setBlankMeta(blank.id, (current) => ({ ...current, status: values.some(Boolean) ? "editing" : current.status })); }}
+                                 onFocus={() => { setActiveBlankId(blank.id); setHelperPanelOpen(Boolean(itemMeta.error || itemMeta.hintOpen)); setBlankMeta(blank.id, (current) => ({ ...current, status: values.some(Boolean) ? "editing" : current.status })); }}
                                 onChange={(event: { target: { value: string } }) => updateParameterAnswer(parameterIndex, event.target.value)}
                                 onBlur={() => { if (parameterValues().every(Boolean)) validateBlank(blank); }}
                                 onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
@@ -926,8 +960,9 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
                               />
                               {parameterIndex < PARAMETER_NAMES.length - 1 ? <span className={styles.paramComma}>,</span> : null}
                             </span>;
-                          })}
-                          {hasHint ? <button className={`${styles.hintButton} ${itemMeta.pulse ? styles.hintPulse : ""} ${itemMeta.hintOpen ? styles.hintButtonOpen : ""}`} onMouseDown={(event: { preventDefault(): void }) => event.preventDefault()} onClick={() => toggleHint(blank)} aria-label={`${blank.label} 힌트`}>?</button> : null}
+                           })}
+                          {itemMeta.error ? <span className={styles.srOnly} id={`blank-error-${activeMissionId}-${blank.id}`}>{itemMeta.error}</span> : null}
+                          {hasHint ? <button className={`${styles.hintButton} ${itemMeta.pulse ? styles.hintPulse : ""} ${itemMeta.hintOpen ? styles.hintButtonOpen : ""}`} onMouseDown={(event: { preventDefault(): void }) => event.preventDefault()} onClick={() => toggleHint(blank)} aria-label={`${blank.label} 힌트`} aria-expanded={itemMeta.hintOpen} aria-controls="code-helper-panel">?</button> : null}
                         </span>;
                       }
                       return <span key={partIndex} className={styles.blankWrap}>
@@ -937,10 +972,12 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
                           value={missionAnswers[blank.id] ?? ""}
                           placeholder={blank.placeholder}
                           aria-label={blank.label}
+                          aria-invalid={Boolean(itemMeta.error)}
+                          aria-describedby={itemMeta.error ? `blank-error-${activeMissionId}-${blank.id}` : undefined}
                           autoCapitalize="none"
                           autoCorrect="off"
                           spellCheck={false}
-                          onFocus={() => { setActiveBlankId(blank.id); setBlankMeta(blank.id, (current) => ({ ...current, status: (missionAnswers[blank.id] ?? "").trim() ? "editing" : current.status })); }}
+                          onFocus={() => { setActiveBlankId(blank.id); setHelperPanelOpen(Boolean(itemMeta.error || itemMeta.hintOpen)); setBlankMeta(blank.id, (current) => ({ ...current, status: (missionAnswers[blank.id] ?? "").trim() ? "editing" : current.status })); }}
                           onChange={(event: { target: { value: string } }) => updateAnswer(blank.id, event.target.value)}
                           onBlur={() => { if ((missionAnswers[blank.id] ?? "").trim()) validateBlank(blank); }}
                           onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
@@ -948,7 +985,8 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
                             if (event.key === "Enter") { event.preventDefault(); validateBlank(blank); moveBlank(blank.id, 1); }
                           }}
                         />
-                        {hasHint ? <button className={`${styles.hintButton} ${itemMeta.pulse ? styles.hintPulse : ""} ${itemMeta.hintOpen ? styles.hintButtonOpen : ""}`} onMouseDown={(event: { preventDefault(): void }) => event.preventDefault()} onClick={() => toggleHint(blank)} aria-label={`${blank.label} 힌트`}>?</button> : null}
+                        {itemMeta.error ? <span className={styles.srOnly} id={`blank-error-${activeMissionId}-${blank.id}`}>{itemMeta.error}</span> : null}
+                        {hasHint ? <button className={`${styles.hintButton} ${itemMeta.pulse ? styles.hintPulse : ""} ${itemMeta.hintOpen ? styles.hintButtonOpen : ""}`} onMouseDown={(event: { preventDefault(): void }) => event.preventDefault()} onClick={() => toggleHint(blank)} aria-label={`${blank.label} 힌트`} aria-expanded={itemMeta.hintOpen} aria-controls="code-helper-panel">?</button> : null}
                       </span>;
                     })}
                     {line.note ? <em className={styles.givenBadge}><Icon name="lock" size={10}/>{line.note}</em> : null}
@@ -956,11 +994,23 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
                 </div>)}
               </div>
 
-              {activeHint && currentBlank ? <section className={styles.hintPanel} aria-live="polite">
-                <span><Icon name="light" size={18}/></span><div><small>{activeHint.label}</small><div>{activeHint.body}</div><button onClick={() => nextHint(currentBlank, activeHintTiers)}>{currentMeta && currentMeta.hintTier >= activeHintTiers.length ? "힌트 닫기" : `다음 힌트 보기 (${(currentMeta?.hintTier ?? 0) + 1}/${activeHintTiers.length})`} <Icon name="arrow" size={14}/></button></div>
-              </section> : null}
-
-              {currentBlank && currentMeta?.error ? <div className={styles.inlineError}><Icon name="x" size={14}/><span><b>{currentBlank.label}</b>{currentMeta.error}</span></div> : null}
+              {helperVisible && currentBlank ? <aside id="code-helper-panel" className={styles.helperPanel} role="region" aria-labelledby="code-helper-title">
+                <header className={styles.helperHeader}>
+                  <div><small>CODE COACH</small><h2 id="code-helper-title">{currentMeta?.error ? "오류부터 확인해요" : "힌트를 확인해요"}</h2></div>
+                  <button type="button" onClick={closeHelperPanel} aria-label="도움말 패널 닫기"><Icon name="x" size={18}/></button>
+                </header>
+                {currentMeta?.error ? <section className={styles.helperError} aria-live="polite" aria-atomic="true">
+                  <span><Icon name="x" size={17}/></span><div><small>ERROR FIRST</small><b>{currentBlank.label}</b><p>{currentMeta.error}</p></div>
+                </section> : null}
+                {activeHintTiers.length ? <section className={styles.helperHint}>
+                  <button type="button" className={styles.helperHintToggle} onClick={() => toggleHint(currentBlank)} aria-expanded={Boolean(activeHint)} aria-controls="active-hint-content">
+                    <span><Icon name="light" size={17}/></span><div><small>HINT</small><b>{activeHint ? "힌트 접기" : "필요할 때 힌트 보기"}</b></div><Icon name="arrow" size={15}/>
+                  </button>
+                  {activeHint ? <div id="active-hint-content" className={styles.helperHintBody} aria-live="polite">
+                    <small>{activeHint.label}</small><div>{activeHint.body}</div><button type="button" onClick={() => currentMeta && currentMeta.hintTier >= activeHintTiers.length ? toggleHint(currentBlank) : nextHint(currentBlank, activeHintTiers)}>{currentMeta && currentMeta.hintTier >= activeHintTiers.length ? "힌트 접기" : `다음 힌트 보기 (${(currentMeta?.hintTier ?? 0) + 1}/${activeHintTiers.length})`} <Icon name="arrow" size={14}/></button>
+                  </div> : null}
+                </section> : null}
+              </aside> : null}
             </div> : <div className={styles.freeEditor}>
               <div className={styles.editorNotice}><span><Icon name="terminal" size={14}/>가이드 없이 전체 코드를 직접 작성합니다.</span><b>Tab: 4칸 · 콜론 뒤 Enter: 자동 들여쓰기</b></div>
               <div className={styles.textareaFrame}>
@@ -981,9 +1031,10 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
           </section>
         </div>
 
-        {result ? <section className={`${styles.resultPanel} ${result.passed ? styles.resultSuccess : styles.resultError}`} aria-live="polite">
+        {result && (result.passed || mode === "free") ? <section className={`${styles.resultPanel} ${result.passed ? styles.resultSuccess : styles.resultError}`} aria-live="polite">
           <span>{result.passed ? <Icon name="check" size={22}/> : <Icon name="terminal" size={22}/>}</span>
           <div><small>{result.passed ? "ALL TESTS PASSED" : "REPAIR REPORT"}</small><h2>{result.passed ? "작성한 코드가 검사를 통과했습니다" : "고칠 위치를 확인해 주세요"}</h2>{result.passed ? <p>공백, 인라인 주석, 0과 0.0처럼 채점 대상이 아닌 차이는 정규화하고 핵심 구조와 순서는 그대로 확인했습니다.</p> : <ul>{result.issues.slice(0, 5).map((issue) => <li key={issue}>{issue}</li>)}</ul>}</div>
+          <button type="button" className={styles.resultClose} onClick={() => setResult(null)} aria-label="검사 결과 닫기"><Icon name="x" size={17}/></button>
         </section> : null}
 
         <div className={styles.actions}>

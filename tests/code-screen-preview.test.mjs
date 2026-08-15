@@ -72,7 +72,9 @@ test("the mission goal is replaced by a horizontal writing route", () => {
 });
 
 test("the writing route header has no overlapping numeric counter", () => {
-  assert.doesNotMatch(source, /<header>[^<]*.*completedCount.*mission\.blanks\.length.*<\/header>/s);
+  const writingRoute = source.slice(source.indexOf("<section className={styles.writingRoute}"));
+  const routeHeader = writingRoute.slice(writingRoute.indexOf("<header>"), writingRoute.indexOf("</header>") + "</header>".length);
+  assert.doesNotMatch(routeHeader, /completedCount|mission\.blanks\.length/);
   assert.match(styles, /\.writingRoute header\{grid-template-columns:30px max-content;justify-content:start/);
 });
 
@@ -113,4 +115,22 @@ test("locked code uses only the unified given badge", () => {
   assert.doesNotMatch(source, /line\.locked \? <Icon name="lock"/);
   assert.doesNotMatch(source, /part\.locked && part\.value\.trim\(\) && line\.locked/);
   assert.match(source, /className=\{styles\.givenBadge\}><Icon name="lock" size=\{10\}\/\>\{line\.note\}/);
+});
+
+test("errors and hints share a closable, error-first accessible panel", () => {
+  assert.match(source, /const \[helperPanelOpen, setHelperPanelOpen\] = useState\(false\)/);
+  assert.match(source, /hintOpen: error && reportWrong \? false : current\.hintOpen/);
+  assert.match(source, /setHelperPanelOpen\(!checked\.passed\)/);
+  assert.match(source, /role="region" aria-labelledby="code-helper-title"/);
+  assert.match(source, /aria-live="polite" aria-atomic="true"/);
+  assert.match(source, /aria-label="도움말 패널 닫기"/);
+  assert.match(source, /aria-invalid=\{Boolean\(itemMeta\.error\)\}/);
+  assert.match(source, /event\.key !== "Escape"/);
+  assert.match(styles, /\.guidedEditorWithHelper\{display:grid;grid-template-columns:minmax\(0,1fr\) minmax\(280px,330px\)/);
+});
+
+test("small editor labels are raised to readable sizes", () => {
+  assert.match(styles, /\.lineBody\{font-size:13px;line-height:1\.6\}/);
+  assert.match(styles, /\.blankInput\{height:37px;font-size:13px\}/);
+  assert.match(styles, /@media\(max-width:560px\)[\s\S]*\.blankInput\{height:40px;font-size:16px\}/);
 });

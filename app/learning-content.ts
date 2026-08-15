@@ -32,8 +32,8 @@ export const glossaryTopics: GlossaryTopic[] = [
     id:"variable",number:"02",title:"값의 역할을 보여 주는 변수",eyebrow:"VARIABLE",
     summary:"숫자나 계산 결과에 의미 있는 이름을 붙여 저장하는 공간입니다. 이번 프로그램은 함수 밖의 전역 설정값을 대문자로, 함수 안의 매개변수와 지역 변수를 소문자로 구분합니다.",
     why:"60 같은 숫자만 보면 역할을 알기 어렵지만 BASE_SPEED라고 쓰면 함수 밖에서 준비한 기본 속도 설정값임을 바로 알 수 있습니다. 함수가 실행되면 이 값은 소문자 매개변수 base_speed로 전달됩니다.",
-    formulas:["설정값 = 저장할 값","BASE_SPEED = 60","KP = 0.8","line_follow(BASE_SPEED, TARGET, KP, KD)"],
-    examples:["BASE_SPEED = 60은 함수 밖에서 사용할 기본 속도를 저장합니다.","TARGET은 따라갈 경계 기준값을 저장합니다.","함수 안에서는 base_speed와 target처럼 소문자 매개변수로 전달받아 사용합니다."],
+    formulas:["설정값 = 저장할 값","BASE_SPEED = 60","KP = 0.8","line_follow(BASE_SPEED, TARGET, KP, KD)","BASE_SPEED → base_speed · TARGET → target · KP → kp · KD → kd"],
+    examples:["BASE_SPEED = 60은 함수 밖에서 사용할 기본 속도를 저장합니다.","TARGET은 따라갈 경계 기준값을 저장합니다.","호출문의 대문자 전역 설정값 BASE_SPEED, TARGET, KP, KD는 함수 안에서 소문자 매개변수 base_speed, target, kp, kd로 각각 전달됩니다."],
     remember:"대문자는 파이썬이 강제로 막는 문법이 아니라 전역 설정값을 알아보기 쉽게 하는 이름 규칙입니다. =는 값을 저장하고, ==는 두 값이 같은지 비교합니다.",
   },
   {
@@ -102,10 +102,10 @@ export const glossaryTopics: GlossaryTopic[] = [
   },
   {
     id:"parameters",number:"09",title:"함수에 값을 전달하는 매개변수",eyebrow:"PARAMETERS",
-    summary:"매개변수는 함수가 실행될 때 밖에서 값을 전달받는 자리입니다. 호출할 때 넣는 실제 값은 인수라고 하며, 각 값은 이름 또는 위치와 연결됩니다.",
+    summary:"매개변수는 함수가 실행될 때 밖에서 값을 전달받는 자리입니다. 현재 코드 작성 화면에서는 대문자 전역 설정값 BASE_SPEED, TARGET, KP, KD를 소문자 매개변수 base_speed, target, kp, kd가 같은 순서로 전달받습니다.",
     why:"같은 line_follow 함수에 기본 속도, 기준값, Kp, Kd를 다르게 전달하면 코드를 다시 만들지 않고도 여러 환경에 맞게 사용할 수 있습니다.",
-    formulas:["def line_follow(base_speed, target, kp, kd):","line_follow(BASE_SPEED, TARGET, KP, KD)","line_follow(base_speed=BASE_SPEED, target=TARGET, kp=KP, kd=KD)"],
-    examples:["대문자 전역 설정값은 호출 순서대로 소문자 매개변수 base_speed, target, kp, kd에 들어갑니다.","함수 밖과 함수 안의 이름을 구분하면 값이 전달되는 흐름이 더 분명해집니다.","이번 채점에서는 다른 코드와 정확히 연결하기 위해 base_speed, target, kp, kd 순서로 선언해야 합니다."],
+    formulas:["def line_follow(base_speed, target, kp, kd):","line_follow(BASE_SPEED, TARGET, KP, KD)","BASE_SPEED → base_speed · TARGET → target · KP → kp · KD → kd"],
+    examples:["첫 번째 인수 BASE_SPEED는 첫 번째 매개변수 base_speed로 전달됩니다.","TARGET은 target으로, KP는 kp로, KD는 kd로 같은 위치끼리 연결됩니다.","이번 채점에서는 다른 코드와 정확히 연결하기 위해 base_speed, target, kp, kd 순서로 선언해야 합니다."],
     remember:"매개변수의 이름과 순서는 파이썬 전체의 절대 규칙이 아닙니다. 다만 이번 미션에서는 정확한 연결과 채점을 위한 프로그램의 약속이므로 안내된 이름과 순서를 사용하세요.",
   },
   {

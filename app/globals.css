@@ -74,6 +74,7 @@ html,body{width:100%;height:100%;overflow:hidden}
 @media(max-width:900px){
   .titleMark{left:5%;width:58vw}.titleCharacter{right:-13%;width:69vw}.loginGame{grid-template-columns:1fr;padding:72px 28px 25px;background:linear-gradient(135deg,#001e41 0%,#07596a 64%,#dff2eb 100%)}.loginCharacter{left:-18%;bottom:-18%;width:120vw;opacity:.25;-webkit-mask-image:linear-gradient(90deg,#000 0%,#000 62%,transparent 92%);mask-image:linear-gradient(90deg,#000 0%,#000 62%,transparent 92%)}.gameLoginCard{grid-column:1;justify-self:center}.endingPanel{left:6%;width:min(520px,57vw)}.endingCharacter{right:-20%;opacity:.64}.gameHud{grid-template-columns:90px minmax(150px,1fr) 155px 135px 64px;gap:10px;padding:0 13px}.gameHud>img{width:82px}.gameViewport{padding:10px 12px 13px}.gameViewport .victoryCard{grid-template-columns:145px 1fr 180px}.gameViewport .victoryCard{gap:10px}.gameViewport .objectiveCard{grid-template-columns:145px 1fr}.gameViewport .unlockNote b{font-size:10px}
 }
+
 @media(max-width:650px){
   .titleScreen,.loginGame,.endingScreen,.gameScreen{min-height:0}.titleLogo{top:18px;left:18px;width:120px}.titleCharacter{right:-38%;bottom:-1%;width:110vw;height:76vh;opacity:.52;-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 62%,transparent 100%);mask-image:linear-gradient(180deg,#000 0%,#000 62%,transparent 100%)}.titleMark{left:5%;top:47%;width:90%;}.titleMark>p{font-size:9px}.titleMark h1{font-size:57px}.titleMark h1 span,.titleMark h1 b{-webkit-text-stroke-width:1.5px}.titleQuest{width:min(330px,94%);margin:17px auto 15px;border-left-width:4px;border-radius:13px 13px 13px 5px;padding:9px 13px 11px}.titleQuest:after{right:10px;top:10px;width:23px}.titleQuestLabel{font-size:6px;gap:5px}.titleQuestLabel svg{width:11px;height:11px}.titleQuest h2{margin-top:4px;font-size:13px}.gameStart{min-width:240px;min-height:54px;font-size:13px}.titleBlocks{transform:scale(.65);transform-origin:left bottom}.titleModules{display:none}.changePlayer{top:18px;right:18px;padding:6px 9px;font-size:8px}.changePlayer svg{width:12px;height:12px}
   .loginGame{display:grid;grid-template-columns:1fr;padding:62px 16px 16px}.loginLogo{top:17px;left:18px;width:105px}.backTitle{top:18px;right:17px}.loginCharacter{left:-45%;bottom:-20%;width:150vw;opacity:.18}.gameLoginCard{grid-column:1;justify-self:center;padding:20px 22px;border-radius:22px;gap:8px}.gameLoginCard h1{font-size:26px}.gameLoginCard input{height:42px}
@@ -90,6 +91,9 @@ html,body{width:100%;height:100%;overflow:hidden}
   .titleMark h1{font-size:clamp(58px,6.3vw,66px);letter-spacing:-.065em}
   .titleQuest{width:min(500px,100%)}
   .titleCharacter{right:-9%;width:59%;opacity:.82}
+  .gameHud{grid-template-columns:92px minmax(180px,1fr) 132px auto;gap:8px;padding:0 10px}
+  .gameHud>img{width:86px}
+  .stageProgress{display:none}
 }
 
 @media(min-width:651px) and (max-width:900px){
@@ -711,4 +715,13 @@ body{word-break:keep-all;overflow-wrap:break-word;line-break:strict;text-align:s
   .screenAudioControl .soundToggle span,.screenAudioControl label{display:none}
   .titleGlossary,.loginGlossary,.endingGlossary{right:64px}
   .loginGame .backTitle{right:116px}
+}
+
+/* V14: concept dictionary readability and explicit code-notation emphasis. */
+.dictionaryHeader small{font-size:10px}.dictionaryHeader p{font-size:13px}.dictionaryBody>nav button b{font-size:13px}.dictionaryBody>nav button span{font-size:10px}
+.dictionaryArticle>header small,.dictionarySection>small{font-size:10px}.dictionaryArticle>header p{font-size:16px;line-height:1.75}.dictionaryWhy small,.dictionaryRemember small{font-size:10px}.dictionaryWhy p,.dictionaryRemember p{font-size:14px;line-height:1.65}.dictionaryFormulas code{min-height:44px;font-size:14px}.dictionarySection li{font-size:14px;line-height:1.65}.dictionaryArticle>footer>span{font-size:11px}.dictionaryArticle>footer button{min-height:44px;font-size:12px}
+
+@media(max-width:560px){
+  .dictionaryHeader small{font-size:9px}.dictionaryHeader h1{font-size:21px}.dictionaryBody>nav button b{font-size:12px}
+  .dictionaryArticle>header p{font-size:15px}.dictionaryWhy p,.dictionaryRemember p{font-size:14px}.dictionaryFormulas code{font-size:14px}.dictionarySection li{font-size:13px}.dictionaryArticle>footer button{font-size:11px}
 }
