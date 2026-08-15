@@ -655,13 +655,14 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
   }
 
   function updateAnswer(blankId: string, value: string) {
+    const keepHintOpen = getBlankMeta(blankId).hintOpen;
     setAnswers((current) => ({
       ...current,
       [String(activeMissionId)]: { ...(current[String(activeMissionId)] ?? {}), [blankId]: value },
     }));
     setBlankMeta(blankId, (current) => ({ ...current, status: value.trim() ? "editing" : "idle", touched: true, error: null }));
     setResult(null);
-    if (blankId === activeBlankId) setHelperPanelOpen(false);
+    if (blankId === activeBlankId) setHelperPanelOpen(keepHintOpen);
   }
 
   function parameterValues() {
@@ -691,7 +692,7 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
         error,
         wrongAttempts,
         pulse: Boolean(error && wrongAttempts === 1 && hasHints),
-        hintOpen: error && reportWrong ? false : current.hintOpen,
+        hintOpen: current.hintOpen,
         hintTier: current.hintTier,
       };
     });
@@ -835,6 +836,8 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
 
   const activeHintTiers = currentBlank ? hintTiersFor(currentBlank) : [];
   const activeHint = currentBlank && currentMeta?.hintOpen && currentMeta.hintTier > 0 ? activeHintTiers[currentMeta.hintTier - 1] : null;
+  const helperTitle = currentMeta?.error ? "오류와 힌트" : "힌트";
+  const helperSummary = activeHint?.label ?? currentBlank?.label ?? "";
   const helperVisible = Boolean(helperPanelOpen && currentBlank && (currentMeta?.error || currentMeta?.hintOpen));
 
   function toggleBgm() {
@@ -1009,18 +1012,18 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
 
               {helperVisible && currentBlank ? <aside id="code-helper-panel" className={styles.helperPanel} role="region" aria-labelledby="code-helper-title">
                 <header className={styles.helperHeader}>
-                  <div><small>CODE COACH</small><h2 id="code-helper-title">{currentMeta?.error ? "오류부터 확인해요" : "힌트를 확인해요"}</h2></div>
+                  <div className={styles.helperHeading}><h2 id="code-helper-title">{helperTitle}</h2><span title={helperSummary}>{helperSummary}</span></div>
                   <button type="button" onClick={closeHelperPanel} aria-label="도움말 패널 닫기"><Icon name="x" size={18}/></button>
                 </header>
                 {currentMeta?.error ? <section className={styles.helperError} aria-live="polite" aria-atomic="true">
-                  <span><Icon name="x" size={17}/></span><div><small>ERROR FIRST</small><b>{currentBlank.label}</b><p>{currentMeta.error}</p></div>
+                  <span><Icon name="x" size={17}/></span><div><small>오류</small><b>{currentBlank.label}</b><p>{currentMeta.error}</p></div>
                 </section> : null}
                 {activeHintTiers.length ? <section className={styles.helperHint}>
                   <button type="button" className={styles.helperHintToggle} onClick={() => toggleHint(currentBlank)} aria-expanded={Boolean(activeHint)} aria-controls="active-hint-content">
-                    <span><Icon name="light" size={17}/></span><div><small>HINT</small><b>{activeHint ? "힌트 접기" : "필요할 때 힌트 보기"}</b></div><Icon name="arrow" size={15}/>
+                    <span><Icon name="light" size={16}/></span><b>{activeHint ? "힌트 접기" : "힌트 보기"}</b><Icon name="arrow" size={15}/>
                   </button>
                   {activeHint ? <div id="active-hint-content" className={styles.helperHintBody} aria-live="polite">
-                    <small>{activeHint.label}</small><div>{activeHint.body}</div><button type="button" onClick={() => currentMeta && currentMeta.hintTier >= activeHintTiers.length ? toggleHint(currentBlank) : nextHint(currentBlank, activeHintTiers)}>{currentMeta && currentMeta.hintTier >= activeHintTiers.length ? "힌트 접기" : `다음 힌트 보기 (${(currentMeta?.hintTier ?? 0) + 1}/${activeHintTiers.length})`} <Icon name="arrow" size={14}/></button>
+                    <div>{activeHint.body}</div><button type="button" onClick={() => currentMeta && currentMeta.hintTier >= activeHintTiers.length ? toggleHint(currentBlank) : nextHint(currentBlank, activeHintTiers)}>{currentMeta && currentMeta.hintTier >= activeHintTiers.length ? "힌트 접기" : `다음 힌트 보기 (${(currentMeta?.hintTier ?? 0) + 1}/${activeHintTiers.length})`} <Icon name="arrow" size={14}/></button>
                   </div> : null}
                 </section> : null}
               </aside> : null}

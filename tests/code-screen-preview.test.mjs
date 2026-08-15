@@ -119,7 +119,7 @@ test("locked code uses only the unified given badge", () => {
 
 test("errors and hints share a closable, error-first accessible panel", () => {
   assert.match(source, /const \[helperPanelOpen, setHelperPanelOpen\] = useState\(false\)/);
-  assert.match(source, /hintOpen: error && reportWrong \? false : current\.hintOpen/);
+  assert.match(source, /hintOpen: current\.hintOpen/);
   assert.match(source, /setHelperPanelOpen\(!checked\.passed\)/);
   assert.match(source, /role="region" aria-labelledby="code-helper-title"/);
   assert.match(source, /aria-live="polite" aria-atomic="true"/);
@@ -130,6 +130,21 @@ test("errors and hints share a closable, error-first accessible panel", () => {
   assert.match(source, /suppressHelperReopenRef\.current = true;[\s\S]*input\.focus\(\)/);
   assert.match(source, /if \(suppressHelperReopenRef\.current\) suppressHelperReopenRef\.current = false; else setHelperPanelOpen/);
   assert.match(styles, /\.guidedEditorWithHelper\{display:grid;grid-template-columns:minmax\(0,1fr\) minmax\(280px,330px\)/);
+});
+
+test("typing keeps an opened hint visible while clearing stale errors", () => {
+  assert.match(source, /const keepHintOpen = getBlankMeta\(blankId\)\.hintOpen/);
+  assert.match(source, /error: null/);
+  assert.match(source, /if \(blankId === activeBlankId\) setHelperPanelOpen\(keepHintOpen\)/);
+});
+
+test("the helper panel prioritizes content over repeated chrome", () => {
+  assert.doesNotMatch(source, /CODE COACH|힌트를 확인해요|ERROR FIRST/);
+  assert.match(source, /const helperTitle = currentMeta\?\.error \? "오류와 힌트" : "힌트"/);
+  assert.match(styles, /\.helperHeader\{[^}]*min-height:52px/);
+  assert.match(styles, /\.helperHeader>button\{width:42px;height:42px/);
+  assert.match(styles, /\.helperHintToggle\{[^}]*min-height:44px/);
+  assert.match(styles, /\.helperHintBody\{[^}]*font-size:13px/);
 });
 
 test("small editor labels are raised to readable sizes", () => {
