@@ -126,6 +126,9 @@ test("errors and hints share a closable, error-first accessible panel", () => {
   assert.match(source, /aria-label="도움말 패널 닫기"/);
   assert.match(source, /aria-invalid=\{Boolean\(itemMeta\.error\)\}/);
   assert.match(source, /event\.key !== "Escape"/);
+  assert.match(source, /const suppressHelperReopenRef = useRef\(false\)/);
+  assert.match(source, /suppressHelperReopenRef\.current = true;[\s\S]*input\.focus\(\)/);
+  assert.match(source, /if \(suppressHelperReopenRef\.current\) suppressHelperReopenRef\.current = false; else setHelperPanelOpen/);
   assert.match(styles, /\.guidedEditorWithHelper\{display:grid;grid-template-columns:minmax\(0,1fr\) minmax\(280px,330px\)/);
 });
 

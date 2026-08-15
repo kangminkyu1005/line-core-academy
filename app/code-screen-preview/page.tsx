@@ -550,6 +550,7 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
   const [expandedPrevious, setExpandedPrevious] = useState<Record<number, boolean>>({});
   const [loaded, setLoaded] = useState(embedded);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const suppressHelperReopenRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const mission = missions[activeMissionId];
@@ -631,7 +632,13 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
       if (activeBlankId) {
         const key = blankKey(activeMissionId, activeBlankId);
         setMeta((current) => current[key] ? ({ ...current, [key]: { ...current[key], hintOpen: false } }) : current);
-        requestAnimationFrame(() => inputRefs.current[key]?.focus());
+        requestAnimationFrame(() => {
+          const input = inputRefs.current[key];
+          if (!input) return;
+          suppressHelperReopenRef.current = true;
+          input.focus();
+          requestAnimationFrame(() => { suppressHelperReopenRef.current = false; });
+        });
       }
     };
     window.addEventListener("keydown", handleEscape);
@@ -772,7 +779,13 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
     setHelperPanelOpen(false);
     if (activeBlankId) {
       setBlankMeta(activeBlankId, (current) => ({ ...current, hintOpen: false }));
-      requestAnimationFrame(() => inputRefs.current[blankKey(activeMissionId, activeBlankId)]?.focus());
+      requestAnimationFrame(() => {
+        const input = inputRefs.current[blankKey(activeMissionId, activeBlankId)];
+        if (!input) return;
+        suppressHelperReopenRef.current = true;
+        input.focus();
+        requestAnimationFrame(() => { suppressHelperReopenRef.current = false; });
+      });
     }
   }
 
@@ -940,7 +953,7 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
                                 autoCapitalize="none"
                                 autoCorrect="off"
                                 spellCheck={false}
-                                 onFocus={() => { setActiveBlankId(blank.id); setHelperPanelOpen(Boolean(itemMeta.error || itemMeta.hintOpen)); setBlankMeta(blank.id, (current) => ({ ...current, status: values.some(Boolean) ? "editing" : current.status })); }}
+                                 onFocus={() => { setActiveBlankId(blank.id); if (suppressHelperReopenRef.current) suppressHelperReopenRef.current = false; else setHelperPanelOpen(Boolean(itemMeta.error || itemMeta.hintOpen)); setBlankMeta(blank.id, (current) => ({ ...current, status: values.some(Boolean) ? "editing" : current.status })); }}
                                 onChange={(event: { target: { value: string } }) => updateParameterAnswer(parameterIndex, event.target.value)}
                                 onBlur={() => { if (parameterValues().every(Boolean)) validateBlank(blank); }}
                                 onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
@@ -977,7 +990,7 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
                           autoCapitalize="none"
                           autoCorrect="off"
                           spellCheck={false}
-                          onFocus={() => { setActiveBlankId(blank.id); setHelperPanelOpen(Boolean(itemMeta.error || itemMeta.hintOpen)); setBlankMeta(blank.id, (current) => ({ ...current, status: (missionAnswers[blank.id] ?? "").trim() ? "editing" : current.status })); }}
+                          onFocus={() => { setActiveBlankId(blank.id); if (suppressHelperReopenRef.current) suppressHelperReopenRef.current = false; else setHelperPanelOpen(Boolean(itemMeta.error || itemMeta.hintOpen)); setBlankMeta(blank.id, (current) => ({ ...current, status: (missionAnswers[blank.id] ?? "").trim() ? "editing" : current.status })); }}
                           onChange={(event: { target: { value: string } }) => updateAnswer(blank.id, event.target.value)}
                           onBlur={() => { if ((missionAnswers[blank.id] ?? "").trim()) validateBlank(blank); }}
                           onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
