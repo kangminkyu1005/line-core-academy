@@ -715,7 +715,12 @@ export function CodeMissionExperience({ embedded = false, missionId, savedCodes 
   function moveBlank(blankId: string, direction: 1 | -1) {
     const index = mission.blanks.findIndex((blank) => blank.id === blankId);
     const next = mission.blanks[index + direction];
-    if (next) focusBlank(next.id);
+    if (!next) return;
+    if (activeMissionId === 2 && next.id === "params" && direction === -1) {
+      focusParameter(PARAMETER_NAMES.length - 1);
+      return;
+    }
+    focusBlank(next.id);
   }
 
   function toggleHint(blank: BlankSpec) {
