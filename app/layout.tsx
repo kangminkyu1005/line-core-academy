@@ -1,10 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "@fontsource-variable/noto-sans-kr";
 import "./globals.css";
 
-const sans = Geist({variable:"--sans",subsets:["latin"]});
-const mono = Geist_Mono({variable:"--mono",subsets:["latin"]});
 export const metadata:Metadata={
   metadataBase:new URL("https://line-core-academy.rotmxm.chatgpt.site"),
   title:"라인 코어 아카데미",
@@ -30,4 +27,4 @@ export const metadata:Metadata={
   twitter:{card:"summary_large_image",images:["/og.png"]},
 };
 export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:"#001e41"};
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="ko"><head><link rel="preload" as="image" href="/assets/lumi-clear.webp" type="image/webp"/></head><body className={`${sans.variable} ${mono.variable}`}>{children}</body></html>}
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="ko"><head><link rel="preload" as="image" href="/assets/lumi-clear.webp" type="image/webp"/></head><body>{children}</body></html>}

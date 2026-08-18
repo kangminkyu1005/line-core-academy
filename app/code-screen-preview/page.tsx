@@ -337,7 +337,8 @@ function makeMissions(): PreviewMission[] {
   ];
 }
 
-const missions = makeMissions();
+export const codePracticeMissions = makeMissions();
+const missions = codePracticeMissions;
 
 function blankKey(missionId: number, blankId: string) {
   return `${missionId}:${blankId}`;

@@ -50,3 +50,43 @@ test("checks both reflection values are inside 0 to 100",()=>{
   assert.equal(result.passed,false);
   assert.match(result.missing.join(" "),/0~100/);
 });
+
+test("rejects unsafe constants and a target that does not use both measurements",()=>{
+  const result=validateCode(1,`BLACK_VALUE = 20
+WHITE_VALUE = 80
+BASE_SPEED = 0
+TARGET = 50
+KP = 4
+KD = -1`);
+  assert.equal(result.passed,false);
+  assert.match(result.missing.join(" "),/기본 속도/);
+  assert.match(result.missing.join(" "),/센서 기준값/);
+  assert.match(result.missing.join(" "),/P 계수/);
+  assert.match(result.missing.join(" "),/D 계수/);
+});
+
+test("rejects wrong function shape, indentation, and sensor call",()=>{
+  const result=validateCode(2,`def follow(target, kp):
+previous_error = 1
+while False:
+sensor_value = color_sensor.color()`);
+  assert.equal(result.passed,false);
+  assert.match(result.missing.join(" "),/함수 선언/);
+  assert.match(result.missing.join(" "),/반복 구조/);
+  assert.match(result.missing.join(" "),/센서 읽기/);
+});
+
+test("rejects reversed D and motor formulas, wrong motor targets, and empty code",()=>{
+  assert.equal(validateCode(4,`change = previous_error - error\nd_control = change * kd`).passed,false);
+  const motors=validateCode(5,`correction = p_control - d_control
+left_power = base_speed - correction
+right_power = base_speed + correction
+left_motor.dc(right_power)
+right_motor.dc(left_power)
+previous_error = 0`);
+  assert.equal(motors.passed,false);
+  assert.match(motors.missing.join(" "),/PD 결합/);
+  assert.match(motors.missing.join(" "),/왼쪽 모터 연결/);
+  assert.match(motors.missing.join(" "),/오른쪽 모터 연결/);
+  assert.equal(validateCode(3,"").passed,false);
+});
