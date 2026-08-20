@@ -30,12 +30,16 @@ test("continuous code editor contains all six inline validation sections",()=>{
   assert.match(page,/aria-invalid/);
 });
 
+test("practice header hides the existing game shortcut",()=>{
+  assert.doesNotMatch(page,/className=\{styles\.gameLink\}/);
+  assert.doesNotMatch(page,/> 기존 게임<\/Link>/);
+});
+
 test("responsive CSS includes required breakpoints, touch targets, and scoped header reset",()=>{
   assert.match(css,/@media\(max-width:1024px\)/);
   assert.match(css,/@media\(max-width:768px\)/);
   assert.match(css,/@media\(max-width:560px\)/);
   assert.match(css,/\.page :where\(header\)/);
   assert.match(css,/:global\(html\):has\(\.page\)/);
-  assert.match(css,/\.gameLink\{min-height:46px\}/);
   assert.match(css,/\.inputRow input,.hintButton\{height:44px\}/);
 });
