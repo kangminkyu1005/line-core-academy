@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const page=await readFile(new URL("../app/practice/page.tsx",import.meta.url),"utf8");
 const css=await readFile(new URL("../app/practice/practice.module.css",import.meta.url),"utf8");
+const downloadCode=await readFile(new URL("../public/downloads/base_code.py",import.meta.url),"utf8");
 
 test("practice route reuses canonical learning content and code validation",()=>{
   assert.match(page,/finalQuizQuestions/);
@@ -35,6 +36,13 @@ test("practice header keeps logo navigation inside practice",()=>{
   assert.doesNotMatch(page,/> 기존 게임<\/Link>/);
   assert.match(page,/<Link href="\/practice" className=\{styles\.brand\} aria-label="Practice 홈으로 이동">/);
   assert.doesNotMatch(page,/<Link href="\/" className=\{styles\.brand\}/);
+});
+
+test("practice header provides the Pybricks source as a direct download",()=>{
+  assert.match(page,/<a href="\/downloads\/base_code\.py" download="base_code\.py" className=\{styles\.downloadButton\} aria-label="Pybricks 기본 코드 다운로드">/);
+  assert.match(page,/>코드 다운로드<\/span>/);
+  assert.match(downloadCode,/def gyro_straight\(speed, distance_cm\):/);
+  assert.match(downloadCode,/def line_follow_pd\(speed, distance_cm, line_side=1\):/);
 });
 
 test("responsive CSS includes required breakpoints, touch targets, and scoped header reset",()=>{

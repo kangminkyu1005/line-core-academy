@@ -9,7 +9,7 @@ import { finalQuizQuestions, glossaryTopics } from "../learning-content";
 import styles from "./practice.module.css";
 
 type PracticeTab = "quiz" | "code";
-type IconName = "arrow" | "book" | "check" | "code" | "light" | "refresh" | "terminal" | "x";
+type IconName = "arrow" | "book" | "check" | "code" | "download" | "light" | "refresh" | "terminal" | "x";
 type CodeAnswers = Record<string, string>;
 type ValidationView = { passed: boolean; fields: Record<string, string>; issues: string[] };
 
@@ -36,6 +36,7 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
     book: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></>,
     check: <path d="m5 12 4 4L19 6"/>,
     code: <><path d="m8 9-4 3 4 3m8-6 4 3-4 3M14 5l-4 14"/></>,
+    download: <><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></>,
     light: <><path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.5 14.5A6 6 0 1 1 15.5 14.5C14.5 15.4 14 16.2 14 18h-4c0-1.8-.5-2.6-1.5-3.5Z"/></>,
     refresh: <><path d="M20 11a8 8 0 1 0 2 5"/><path d="M20 4v7h-7"/></>,
     terminal: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3m6 0h4"/></>,
@@ -486,6 +487,7 @@ export default function PracticePage() {
     <div className={styles.backgroundGrid} aria-hidden="true"/>
     <header className={styles.siteHeader}>
       <Link href="/practice" className={styles.brand} aria-label="Practice 홈으로 이동"><Image src="/assets/playwell-logo.png" alt="PLAYWELL" width={806} height={213} priority unoptimized/><span><small>LINE FOLLOWING</small><b>CONCEPT &amp; CODE PRACTICE</b></span></Link>
+      <a href="/downloads/base_code.py" download="base_code.py" className={styles.downloadButton} aria-label="Pybricks 기본 코드 다운로드"><Icon name="download" size={18}/><span>코드 다운로드</span></a>
     </header>
     <section className={styles.practiceShell}>
       <header className={styles.hero}><div><small>LINE CORE ACADEMY · CLASS PRACTICE</small><h1>개념 문제와 전체 코드를<br/>원하는 방식으로 연습해요</h1><p>객관식 20문제 또는 하나의 전체 Python 프로그램을 선택해 학습할 수 있습니다.</p></div><Image src="/assets/lumi-guide.webp" alt="두 가지 학습 모드를 안내하는 루미" width={800} height={800} priority unoptimized/></header>
