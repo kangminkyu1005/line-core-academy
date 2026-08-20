@@ -6,9 +6,11 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { codePracticeMissions } from "../code-screen-preview/page";
 import { validateCode } from "../code-validation.js";
 import { finalQuizQuestions, glossaryTopics } from "../learning-content";
+import { functionReferences } from "./function-snippets.js";
 import styles from "./practice.module.css";
 
-type PracticeTab = "quiz" | "code";
+type FunctionTab = keyof typeof functionReferences;
+type PracticeTab = "quiz" | "code" | FunctionTab;
 type IconName = "arrow" | "book" | "check" | "code" | "download" | "light" | "refresh" | "terminal" | "x";
 type CodeAnswers = Record<string, string>;
 type ValidationView = { passed: boolean; fields: Record<string, string>; issues: string[] };
@@ -118,6 +120,52 @@ function ConceptDictionary({ index, onSelect, onClose }: { index: number; onSele
       </div>
     </section>
   </div>;
+}
+
+function FunctionReference({ kind }: { kind: FunctionTab }) {
+  const reference = functionReferences[kind];
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+
+  useEffect(() => {
+    if (copyStatus === "idle") return;
+    const timer = window.setTimeout(() => setCopyStatus("idle"), 2600);
+    return () => window.clearTimeout(timer);
+  }, [copyStatus]);
+
+  async function copyCode() {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(reference.code);
+      } else {
+        const textarea = document.createElement("textarea");
+        try {
+          textarea.value = reference.code;
+          textarea.readOnly = true;
+          textarea.style.position = "fixed";
+          textarea.style.opacity = "0";
+          document.body.appendChild(textarea);
+          textarea.select();
+          if (!document.execCommand("copy")) throw new Error("copy failed");
+        } finally {
+          textarea.remove();
+        }
+      }
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
+  }
+
+  return <section className={styles.functionReference} data-qa={`function-reference-${kind}`}>
+    <header className={styles.functionHeading}>
+      <div><small>{reference.eyebrow}</small><h2>{reference.title}</h2><p>{reference.description}</p></div>
+      <button type="button" className={styles.copyButton} onClick={copyCode}><Icon name={copyStatus === "copied" ? "check" : "terminal"} size={17}/>{copyStatus === "copied" ? "복사 완료" : "설정 포함 코드 복사"}</button>
+    </header>
+    <aside className={styles.setupNotice} role="note"><Icon name="light" size={18}/><p><b>내 로봇 설정을 확인하세요</b>다운로드 코드의 기본 포트와 크기가 포함됩니다. 복사한 뒤 Pybricks 편집기에서 모터 포트, 회전 방향, 센서 포트, 바퀴 크기를 사용하는 로봇에 맞게 확인하세요.</p></aside>
+    <div className={styles.readOnlyLabel}><span>READ ONLY · 편집 불가</span><span>IMPORT + 로봇 설정 + 함수 + 사용 예시</span></div>
+    <pre className={styles.referenceCode} tabIndex={0} aria-label={`${reference.title} 읽기 전용 코드`}><code>{reference.code}</code></pre>
+    <p className={styles.copyStatus} data-state={copyStatus} role="status" aria-live="polite">{copyStatus === "copied" ? `${reference.functionName} 실행에 필요한 설정과 함수가 복사되었습니다.` : copyStatus === "error" ? "자동 복사에 실패했습니다. 브라우저의 클립보드 권한을 확인해 주세요." : ""}</p>
+  </section>;
 }
 
 function QuizMode({ openGlossary }: { openGlossary: (id?: string) => void }) {
@@ -469,7 +517,7 @@ export default function PracticePage() {
   useEffect(() => {
     queueMicrotask(() => {
       const saved = localStorage.getItem(MODE_KEY);
-      if (saved === "quiz" || saved === "code") setTab(saved);
+      if (saved === "quiz" || saved === "code" || saved === "straight" || saved === "line" || saved === "turn") setTab(saved);
       setLoaded(true);
     });
   }, []);
@@ -490,12 +538,15 @@ export default function PracticePage() {
       <a href="/downloads/base_code.py" download="base_code.py" className={styles.downloadButton} aria-label="Pybricks 기본 코드 다운로드"><Icon name="download" size={18}/><span>코드 다운로드</span></a>
     </header>
     <section className={styles.practiceShell}>
-      <header className={styles.hero}><div><small>LINE CORE ACADEMY · CLASS PRACTICE</small><h1>개념 문제와 전체 코드를<br/>원하는 방식으로 연습해요</h1><p>객관식 20문제 또는 하나의 전체 Python 프로그램을 선택해 학습할 수 있습니다.</p></div><Image src="/assets/lumi-guide.webp" alt="두 가지 학습 모드를 안내하는 루미" width={800} height={800} priority unoptimized/></header>
+      <header className={styles.hero}><div><small>LINE CORE ACADEMY · CLASS PRACTICE</small><h1>개념 문제와 전체 코드를<br/>원하는 방식으로 연습해요</h1><p>객관식 문제, 코드 완성, 설정이 포함된 함수 예제를 선택해 학습할 수 있습니다.</p></div><Image src="/assets/lumi-guide.webp" alt="학습 모드와 함수 예제를 안내하는 루미" width={800} height={800} priority unoptimized/></header>
       <nav className={styles.tabs} aria-label="학습 모드 선택" role="tablist">
         <button role="tab" id="quiz-tab" aria-selected={tab === "quiz"} aria-controls="quiz-panel" className={tab === "quiz" ? styles.activeTab : ""} onClick={() => setTab("quiz")}><span><Icon name="book" size={19}/></span><b>객관식 문제</b><small>20문제 개념 점검</small></button>
         <button role="tab" id="code-tab" aria-selected={tab === "code"} aria-controls="code-panel" className={tab === "code" ? styles.activeTab : ""} onClick={() => setTab("code")}><span><Icon name="code" size={19}/></span><b>코드 완성</b><small>전체 함수 작성</small></button>
+        <button role="tab" id="straight-tab" aria-selected={tab === "straight"} aria-controls="straight-panel" className={tab === "straight" ? styles.activeTab : ""} onClick={() => setTab("straight")}><span><Icon name="arrow" size={19}/></span><b>전진·후진 함수</b><small>gyro_straight</small></button>
+        <button role="tab" id="line-tab" aria-selected={tab === "line"} aria-controls="line-panel" className={tab === "line" ? styles.activeTab : ""} onClick={() => setTab("line")}><span><Icon name="code" size={19}/></span><b>라인 함수</b><small>line_follow_pd</small></button>
+        <button role="tab" id="turn-tab" aria-selected={tab === "turn"} aria-controls="turn-panel" className={tab === "turn" ? styles.activeTab : ""} onClick={() => setTab("turn")}><span><Icon name="refresh" size={19}/></span><b>회전 함수</b><small>gyro_turn</small></button>
       </nav>
-      <section id={`${tab}-panel`} role="tabpanel" aria-labelledby={`${tab}-tab`} className={styles.tabPanel}>{tab === "quiz" ? <QuizMode openGlossary={openGlossary}/> : <CodeMode openGlossary={openGlossary}/>}</section>
+      <section id={`${tab}-panel`} role="tabpanel" aria-labelledby={`${tab}-tab`} className={styles.tabPanel}>{tab === "quiz" ? <QuizMode openGlossary={openGlossary}/> : tab === "code" ? <CodeMode openGlossary={openGlossary}/> : <FunctionReference kind={tab}/>}</section>
     </section>
   </main>{dictionaryOpen ? <ConceptDictionary index={dictionaryIndex} onSelect={setDictionaryIndex} onClose={() => setDictionaryOpen(false)}/> : null}</>;
 }
