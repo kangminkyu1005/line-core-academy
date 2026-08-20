@@ -485,7 +485,7 @@ export default function PracticePage() {
   return <><main className={styles.page} aria-hidden={dictionaryOpen || undefined} inert={dictionaryOpen || undefined}>
     <div className={styles.backgroundGrid} aria-hidden="true"/>
     <header className={styles.siteHeader}>
-      <Link href="/" className={styles.brand} aria-label="기존 라인 코어 게임으로 돌아가기"><Image src="/assets/playwell-logo.png" alt="PLAYWELL" width={806} height={213} priority unoptimized/><span><small>LINE FOLLOWING</small><b>CONCEPT &amp; CODE PRACTICE</b></span></Link>
+      <Link href="/practice" className={styles.brand} aria-label="Practice 홈으로 이동"><Image src="/assets/playwell-logo.png" alt="PLAYWELL" width={806} height={213} priority unoptimized/><span><small>LINE FOLLOWING</small><b>CONCEPT &amp; CODE PRACTICE</b></span></Link>
     </header>
     <section className={styles.practiceShell}>
       <header className={styles.hero}><div><small>LINE CORE ACADEMY · CLASS PRACTICE</small><h1>개념 문제와 전체 코드를<br/>원하는 방식으로 연습해요</h1><p>객관식 20문제 또는 하나의 전체 Python 프로그램을 선택해 학습할 수 있습니다.</p></div><Image src="/assets/lumi-guide.webp" alt="두 가지 학습 모드를 안내하는 루미" width={800} height={800} priority unoptimized/></header>

@@ -30,9 +30,11 @@ test("continuous code editor contains all six inline validation sections",()=>{
   assert.match(page,/aria-invalid/);
 });
 
-test("practice header hides the existing game shortcut",()=>{
+test("practice header keeps logo navigation inside practice",()=>{
   assert.doesNotMatch(page,/className=\{styles\.gameLink\}/);
   assert.doesNotMatch(page,/> 기존 게임<\/Link>/);
+  assert.match(page,/<Link href="\/practice" className=\{styles\.brand\} aria-label="Practice 홈으로 이동">/);
+  assert.doesNotMatch(page,/<Link href="\/" className=\{styles\.brand\}/);
 });
 
 test("responsive CSS includes required breakpoints, touch targets, and scoped header reset",()=>{
