@@ -74,7 +74,8 @@ test("the concept dictionary covers the requested learning map and is globally r
 });
 
 test("the last mission leads to a 20-question final review", () => {
-  assert.equal(learningContent.match(/\{category:"(?:센서와 기준|PD 제어|파이썬 문법)"/g)?.length, 20);
+  const finalQuiz=learningContent.slice(learningContent.indexOf("export const finalQuizQuestions"));
+  assert.equal(finalQuiz.match(/\{category:"(?:센서와 기준|PD 제어|파이썬 문법)"/g)?.length, 20);
   assert.match(source, /setScreen\("quiz"\)/);
   assert.match(source, /if\(screen==="quiz"\)/);
   assert.match(source, /종합 문제로/);

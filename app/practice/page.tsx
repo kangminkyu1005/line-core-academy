@@ -5,7 +5,7 @@ import Image from "next/image";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { codePracticeMissions } from "../code-screen-preview/page";
 import { validateCode } from "../code-validation.js";
-import { finalQuizQuestions, glossaryTopics } from "../learning-content";
+import { glossaryTopics, practiceQuizQuestions } from "../learning-content";
 import { functionReferences } from "./function-snippets.js";
 import styles from "./practice.module.css";
 
@@ -20,9 +20,8 @@ const QUIZ_KEY = "linecore-practice-quiz";
 const CODE_KEY = "linecore-practice-code";
 const CODE_STATUS_KEY = "linecore-practice-status";
 
-const sectionNames = ["처리 순서", "변수 설정", "함수 구조", "센서 + P 제어", "D 제어", "모터 제어"];
+const sectionNames = ["변수 설정", "함수 구조", "센서 + P 제어", "D 제어", "모터 제어"];
 const sectionFieldKeys = [
-  ["0.sensor", "0.error", "0.direction", "0.repeat"],
   ["1.black_value", "1.white_value", "1.base_speed", "1.target", "1.kp", "1.kd"],
   ["2.params", "2.previous_error", "2.loop"],
   ["2.sensor", "3.error", "3.p_control"],
@@ -168,10 +167,10 @@ function FunctionReference({ kind }: { kind: FunctionTab }) {
   </section>;
 }
 
-function QuizMode({ openGlossary }: { openGlossary: (id?: string) => void }) {
+function QuizMode({ openGlossary, onStartCode }: { openGlossary: (id?: string) => void; onStartCode: () => void }) {
   const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState<Array<number | null>>(() => finalQuizQuestions.map(() => null));
-  const [checked, setChecked] = useState<boolean[]>(() => finalQuizQuestions.map(() => false));
+  const [answers, setAnswers] = useState<Array<number | null>>(() => practiceQuizQuestions.map(() => null));
+  const [checked, setChecked] = useState<boolean[]>(() => practiceQuizQuestions.map(() => false));
   const [complete, setComplete] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -181,10 +180,13 @@ function QuizMode({ openGlossary }: { openGlossary: (id?: string) => void }) {
         const saved = localStorage.getItem(QUIZ_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed.answers) && parsed.answers.length === finalQuizQuestions.length) setAnswers(parsed.answers);
-          if (Array.isArray(parsed.checked) && parsed.checked.length === finalQuizQuestions.length) setChecked(parsed.checked);
-          if (Number.isInteger(parsed.index)) setIndex(Math.min(Math.max(parsed.index, 0), finalQuizQuestions.length - 1));
-          setComplete(Boolean(parsed.complete));
+          const compatible = Array.isArray(parsed.answers) && parsed.answers.length === practiceQuizQuestions.length && Array.isArray(parsed.checked) && parsed.checked.length === practiceQuizQuestions.length;
+          if (compatible) {
+            setAnswers(parsed.answers);
+            setChecked(parsed.checked);
+            if (Number.isInteger(parsed.index)) setIndex(Math.min(Math.max(parsed.index, 0), practiceQuizQuestions.length - 1));
+            setComplete(Boolean(parsed.complete));
+          } else localStorage.removeItem(QUIZ_KEY);
         }
       } catch { localStorage.removeItem(QUIZ_KEY); }
       setLoaded(true);
@@ -196,32 +198,35 @@ function QuizMode({ openGlossary }: { openGlossary: (id?: string) => void }) {
     localStorage.setItem(QUIZ_KEY, JSON.stringify({ index, answers, checked, complete }));
   }, [answers, checked, complete, index, loaded]);
 
-  const score = answers.reduce((total, answer, questionIndex) => total + (answer === finalQuizQuestions[questionIndex].answer ? 1 : 0), 0);
+  const score = answers.reduce((total, answer, questionIndex) => total + (answer === practiceQuizQuestions[questionIndex].answer ? 1 : 0), 0);
   const categoryResults = ["센서와 기준", "PD 제어", "파이썬 문법"].map((category) => {
-    const indexes = finalQuizQuestions.map((question, questionIndex) => question.category === category ? questionIndex : -1).filter((questionIndex) => questionIndex >= 0);
-    return { category, total: indexes.length, correct: indexes.filter((questionIndex) => answers[questionIndex] === finalQuizQuestions[questionIndex].answer).length };
+    const indexes = practiceQuizQuestions.map((question, questionIndex) => question.category === category ? questionIndex : -1).filter((questionIndex) => questionIndex >= 0);
+    return { category, total: indexes.length, correct: indexes.filter((questionIndex) => answers[questionIndex] === practiceQuizQuestions[questionIndex].answer).length };
   });
 
   function resetQuiz() {
-    setIndex(0); setAnswers(finalQuizQuestions.map(() => null)); setChecked(finalQuizQuestions.map(() => false)); setComplete(false);
+    setIndex(0); setAnswers(practiceQuizQuestions.map(() => null)); setChecked(practiceQuizQuestions.map(() => false)); setComplete(false);
   }
 
   if (complete) return <section className={styles.quizResult} data-qa="quiz-result">
     <header><span><Icon name="check" size={28}/></span><div><small>CONCEPT CHECK COMPLETE</small><h2>객관식 문제를 모두 완료했습니다</h2></div></header>
-    <div className={styles.scoreHero} data-qa-value-group><strong>{score}</strong><span>/ {finalQuizQuestions.length}</span><p>점수는 평가의 끝이 아니라 다시 볼 개념을 찾는 안내입니다.</p></div>
+    <div className={styles.scoreHero} data-qa-value-group><strong>{score}</strong><span>/ {practiceQuizQuestions.length}</span><p>점수는 평가의 끝이 아니라 다시 볼 개념을 찾는 안내입니다.</p></div>
     <div className={styles.categoryGrid}>{categoryResults.map((result) => <article key={result.category}><span>{result.category}</span><b>{result.correct} / {result.total}</b><i><em style={{ width: `${result.total ? (result.correct / result.total) * 100 : 0}%` }}/></i></article>)}</div>
-    <section className={styles.reviewMap}><header><div><small>REVIEW MAP</small><h3>{score === finalQuizQuestions.length ? "모든 개념을 정확히 연결했어요" : "다시 보면 좋은 개념"}</h3></div><button onClick={() => openGlossary()}><Icon name="book" size={16}/> 개념 사전 열기</button></header>
-      {score < finalQuizQuestions.length ? <div>{finalQuizQuestions.map((question, questionIndex) => answers[questionIndex] !== question.answer ? <button key={question.question} onClick={() => openGlossary(question.glossaryId)}><span>{String(questionIndex + 1).padStart(2, "0")}</span><div><b>{question.category}</b><p>{question.question}</p></div><Icon name="arrow" size={17}/></button> : null)}</div> : <p className={styles.perfectReview}><Icon name="check" size={18}/>필요할 때 개념 사전에서 공식과 예시를 다시 확인할 수 있어요.</p>}
+    <section className={styles.reviewMap}><header><div><small>REVIEW MAP</small><h3>{score === practiceQuizQuestions.length ? "모든 개념을 정확히 연결했어요" : "다시 보면 좋은 개념"}</h3></div><button onClick={() => openGlossary()}><Icon name="book" size={16}/> 개념 사전 열기</button></header>
+      {score < practiceQuizQuestions.length ? <div>{practiceQuizQuestions.map((question, questionIndex) => answers[questionIndex] !== question.answer ? <button key={question.question} onClick={() => openGlossary(question.glossaryId)}><span>{String(questionIndex + 1).padStart(2, "0")}</span><div><b>{question.category}</b><p>{question.question}</p></div><Icon name="arrow" size={17}/></button> : null)}</div> : <p className={styles.perfectReview}><Icon name="check" size={18}/>필요할 때 개념 사전에서 공식과 예시를 다시 확인할 수 있어요.</p>}
     </section>
-    <button className={styles.primaryButton} onClick={resetQuiz}><Icon name="refresh" size={17}/> 다시 풀기</button>
+    <div className={styles.quizResultActions}>
+      <button className={styles.primaryButton} onClick={resetQuiz}><Icon name="refresh" size={17}/> 다시 풀기</button>
+      <button className={styles.primaryButton} onClick={onStartCode}>코드 학습으로 이동 <Icon name="arrow" size={17}/></button>
+    </div>
   </section>;
 
-  const question = finalQuizQuestions[index];
+  const question = practiceQuizQuestions[index];
   const selected = answers[index];
   const isChecked = checked[index];
   return <section className={styles.quizMode} data-qa="quiz-mode">
-    <header className={styles.modeHeading}><div><small>20 QUESTIONS · CONCEPT CHECK</small><h2>라인 팔로잉 개념을 확인해요</h2><p>답을 고른 뒤 정답 확인을 눌러 해설과 관련 개념을 확인하세요.</p></div><button className={styles.dictionaryButton} onClick={() => openGlossary()}><Icon name="book" size={16}/> 개념 사전</button></header>
-    <div className={styles.quizProgress}><span><b>{index + 1}</b> / {finalQuizQuestions.length}</span><i><em style={{ width: `${((index + 1) / finalQuizQuestions.length) * 100}%` }}/></i></div>
+    <header className={styles.modeHeading}><div><small>10 QUESTIONS · CONCEPT CHECK</small><h2>라인 팔로잉 개념을 확인해요</h2><p>답을 고른 뒤 정답 확인을 눌러 해설과 관련 개념을 확인하세요.</p></div><button className={styles.dictionaryButton} onClick={() => openGlossary()}><Icon name="book" size={16}/> 개념 사전</button></header>
+    <div className={styles.quizProgress}><span><b>{index + 1}</b> / {practiceQuizQuestions.length}</span><i><em style={{ width: `${((index + 1) / practiceQuizQuestions.length) * 100}%` }}/></i></div>
     <article className={styles.questionCard}>
       <header><span>{String(index + 1).padStart(2, "0")}</span><div><small>{question.category}</small><h3>{question.question}</h3></div></header>
       <div className={styles.quizOptions}>{question.options.map((option, optionIndex) => {
@@ -231,7 +236,7 @@ function QuizMode({ openGlossary }: { openGlossary: (id?: string) => void }) {
         return <button key={option} className={`${chosen ? styles.optionSelected : ""} ${correct ? styles.optionCorrect : ""} ${wrong ? styles.optionWrong : ""}`} aria-pressed={chosen} disabled={isChecked} onClick={() => setAnswers((current) => current.map((value, answerIndex) => answerIndex === index ? optionIndex : value))}><span>{String.fromCharCode(65 + optionIndex)}</span><b>{option}</b>{correct ? <Icon name="check" size={18}/> : wrong ? <Icon name="x" size={18}/> : null}</button>;
       })}</div>
       {isChecked ? <section className={`${styles.quizFeedback} ${selected === question.answer ? styles.feedbackCorrect : styles.feedbackWrong}`} aria-live="polite"><span><Icon name={selected === question.answer ? "check" : "x"} size={19}/></span><div><b>{selected === question.answer ? "정답입니다" : "다시 확인해 볼 개념이 있어요"}</b><p>{question.explanation}</p><button onClick={() => openGlossary(question.glossaryId)}><Icon name="book" size={15}/> 관련 개념 보기</button></div></section> : null}
-      <footer><p><Icon name="light" size={15}/>정답을 확인한 뒤 다음 문제로 이동할 수 있습니다.</p>{!isChecked ? <button className={styles.primaryButton} disabled={selected === null} onClick={() => setChecked((current) => current.map((value, checkedIndex) => checkedIndex === index ? true : value))}>정답 확인 <Icon name="arrow" size={18}/></button> : <button className={styles.primaryButton} onClick={() => index === finalQuizQuestions.length - 1 ? setComplete(true) : setIndex((current) => current + 1)}>{index === finalQuizQuestions.length - 1 ? "결과 확인" : "다음 문제"} <Icon name="arrow" size={18}/></button>}</footer>
+      <footer><p><Icon name="light" size={15}/>정답을 확인한 뒤 다음 문제로 이동할 수 있습니다.</p>{!isChecked ? <button className={styles.primaryButton} disabled={selected === null} onClick={() => setChecked((current) => current.map((value, checkedIndex) => checkedIndex === index ? true : value))}>정답 확인 <Icon name="arrow" size={18}/></button> : <button className={styles.primaryButton} onClick={() => index === practiceQuizQuestions.length - 1 ? setComplete(true) : setIndex((current) => current + 1)}>{index === practiceQuizQuestions.length - 1 ? "결과 확인" : "다음 문제"} <Icon name="arrow" size={18}/></button>}</footer>
     </article>
   </section>;
 }
@@ -251,11 +256,17 @@ function CodeMode({ openGlossary }: { openGlossary: (id?: string) => void }) {
       try {
         const saved = localStorage.getItem(CODE_KEY);
         const savedStatus = localStorage.getItem(CODE_STATUS_KEY);
-        if (saved) setAnswers({ ...initialCodeAnswers, ...JSON.parse(saved) });
+        if (saved) {
+          const parsedAnswers = JSON.parse(saved);
+          setAnswers(Object.fromEntries(Object.keys(initialCodeAnswers).map((key) => [key, parsedAnswers[key] ?? ""])));
+        }
         if (savedStatus) {
           const parsed = JSON.parse(savedStatus);
-          if (parsed.hints) setHints(parsed.hints);
-          if (Array.isArray(parsed.completed) && parsed.completed.length === sectionNames.length) setCompleted(parsed.completed);
+          if (parsed.hints) setHints(Object.fromEntries(Object.entries(parsed.hints).filter(([key]) => key in initialCodeAnswers)) as Record<string, number>);
+          if (Array.isArray(parsed.completed)) {
+            if (parsed.completed.length === sectionNames.length) setCompleted(parsed.completed);
+            else if (parsed.completed.length === sectionNames.length + 1) setCompleted(parsed.completed.slice(1));
+          }
           setOverallChecked(Boolean(parsed.overallChecked));
         }
       } catch { localStorage.removeItem(CODE_KEY); localStorage.removeItem(CODE_STATUS_KEY); }
@@ -272,11 +283,6 @@ function CodeMode({ openGlossary }: { openGlossary: (id?: string) => void }) {
   const fullCode = useMemo(() => {
     const value = (key: string) => answers[key]?.trim() || "___";
     return [
-      `# ${value("0.sensor")}`,
-      `# ${value("0.error")}`,
-      `# ${value("0.direction")}`,
-      `# ${value("0.repeat")}`,
-      "",
       `BLACK_VALUE = ${value("1.black_value")}`,
       `WHITE_VALUE = ${value("1.white_value")}`,
       `BASE_SPEED = ${value("1.base_speed")}`,
@@ -363,31 +369,24 @@ function CodeMode({ openGlossary }: { openGlossary: (id?: string) => void }) {
   function resultFor(sectionIndex: number, overall = false): ValidationView {
     const v = (key: string, fallback = "") => answers[key]?.trim() || fallback;
     if (sectionIndex === 0) {
-      const code = [`# ${v("0.sensor")}`, `# ${v("0.error")}`, `# ${v("0.direction")}`, `# ${v("0.repeat")}`].join("\n");
-      const result = validateCode(0, code, 1);
-      const fields: Record<string, string> = {};
-      sectionFieldKeys[0].forEach((key) => { if (!v(key)) fields[key] = "이 과정의 역할을 자신의 표현으로 적어 주세요."; });
-      return { passed: result.passed && Object.keys(fields).length === 0, fields, issues: result.missing };
-    }
-    if (sectionIndex === 1) {
       const code = [`BLACK_VALUE = ${v("1.black_value")}`, `WHITE_VALUE = ${v("1.white_value")}`, `BASE_SPEED = ${v("1.base_speed")}`, `TARGET = ${v("1.target")}`, `KP = ${v("1.kp")}`, `KD = ${v("1.kd")}`].join("\n");
       const result = validateCode(1, code, 1); const mapped = issueMap(1, result.missing);
       return { passed: result.passed, fields: mapped.fields, issues: mapped.remaining };
     }
-    if (sectionIndex === 2) {
+    if (sectionIndex === 1) {
       const sensor = overall ? v("2.sensor") : "color_sensor.reflection()";
       const code = [`def line_follow(${v("2.params")}):`, `    previous_error = ${v("2.previous_error")}`, `    while ${v("2.loop")}:`, `        sensor_value = ${sensor}`].join("\n");
       const result = validateCode(2, code, 1); const mapped = issueMap(2, result.missing);
       if (!overall) delete mapped.fields["2.sensor"];
       return { passed: result.passed || (!overall && Object.keys(mapped.fields).length === 0 && mapped.remaining.length === 0), fields: mapped.fields, issues: mapped.remaining };
     }
-    if (sectionIndex === 3) {
+    if (sectionIndex === 2) {
       const sensorCode = [`def line_follow(base_speed, target, kp, kd):`, `    previous_error = 0`, `    while True:`, `        sensor_value = ${v("2.sensor")}`].join("\n");
       const sensorResult = validateCode(2, sensorCode, 1); const sensorMapped = issueMap(2, sensorResult.missing);
       const formulaResult = validateCode(3, `error = ${v("3.error")}\np_control = ${v("3.p_control")}`, 1); const formulaMapped = issueMap(3, formulaResult.missing);
       return { passed: sensorResult.passed && formulaResult.passed, fields: { ...sensorMapped.fields, ...formulaMapped.fields }, issues: [...sensorMapped.remaining, ...formulaMapped.remaining] };
     }
-    if (sectionIndex === 4) {
+    if (sectionIndex === 3) {
       const result = validateCode(4, `change = ${v("4.change")}\nd_control = ${v("4.d_control")}`, 1); const mapped = issueMap(4, result.missing);
       return { passed: result.passed, fields: mapped.fields, issues: mapped.remaining };
     }
@@ -414,7 +413,7 @@ function CodeMode({ openGlossary }: { openGlossary: (id?: string) => void }) {
   }
 
   function checkAll() {
-    const results = sectionNames.map((_, sectionIndex) => resultFor(sectionIndex, sectionIndex === 2));
+    const results = sectionNames.map((_, sectionIndex) => resultFor(sectionIndex, sectionIndex === 1));
     results.forEach((result, sectionIndex) => applySectionResult(sectionIndex, result));
     const passed = results.every((result) => result.passed);
     setOverallChecked(passed);
@@ -436,65 +435,56 @@ function CodeMode({ openGlossary }: { openGlossary: (id?: string) => void }) {
   }
 
   return <section className={styles.codeMode} data-qa="code-mode">
-    <header className={styles.modeHeading}><div><small>ONE PROGRAM · SIX STEPS</small><h2>전체 코드를 위에서 아래로 완성해요</h2><p>한 화면에서 작은 학습 단위를 순서대로 검사하며 하나의 line_follow() 함수를 만듭니다.</p></div><button className={styles.dictionaryButton} onClick={() => openGlossary()}><Icon name="book" size={16}/> 개념 사전</button></header>
+    <header className={styles.modeHeading}><div><small>ONE PROGRAM · FIVE STEPS</small><h2>전체 코드를 위에서 아래로 완성해요</h2><p>한 화면에서 작은 학습 단위를 순서대로 검사하며 하나의 line_follow() 함수를 만듭니다.</p></div><button className={styles.dictionaryButton} onClick={() => openGlossary()}><Icon name="book" size={16}/> 개념 사전</button></header>
     <section className={styles.codeProgress} data-qa="code-progress"><header><div><small>CODE PROGRESS</small><b>{completedCount} / {sectionNames.length} 완료</b></div><button onClick={resetCode}><Icon name="refresh" size={15}/> 전체 초기화</button></header><i><em style={{ width: `${(completedCount / sectionNames.length) * 100}%` }}/></i><nav aria-label="코드 작성 단계">{sectionNames.map((name, index) => <button key={name} className={completed[index] ? styles.stepDone : ""} onClick={() => sectionRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "start" })}><span>{completed[index] ? <Icon name="check" size={13}/> : String(index + 1).padStart(2, "0")}</span><b>{name}</b></button>)}</nav></section>
     <section className={styles.codeEditor} aria-label="라인 팔로잉 전체 코드 작성">
       <header className={styles.editorTop}><span/><span/><span/><b>line_follow.py</b></header>
       <div className={styles.editorNotice}><Icon name="terminal" size={15}/><span>잠긴 코드는 읽고, 밝게 표시된 빈칸만 직접 입력하세요.</span><b>Python 들여쓰기 구조 유지</b></div>
 
       <section ref={(node) => { sectionRefs.current[0] = node; }} className={`${styles.codeSection} ${completed[0] ? styles.sectionComplete : ""}`} data-qa="code-section-1">
-        <header><span>{completed[0] ? <Icon name="check" size={15}/> : "01"}</span><div><small>STEP 01</small><h3>처리 순서</h3></div><button onClick={() => checkSection(0)}>{completed[0] ? "다시 검사" : "STEP 검사"}</button></header>
-        <div className={styles.codeLine}><span>1</span><code># </code>{input("0.sensor", "센서 확인", "현재 상태를 확인하는 과정", true)}</div>
-        <div className={styles.codeLine}><span>2</span><code># </code>{input("0.error", "오차 계산", "기준과의 차이를 구하는 과정", true)}</div>
-        <div className={styles.codeLine}><span>3</span><code># </code>{input("0.direction", "방향 보정", "좌우 움직임을 조절하는 과정", true)}</div>
-        <div className={styles.codeLine}><span>4</span><code># </code>{input("0.repeat", "반복", "처음부터 다시 수행하는 과정", true)}</div>
+        <header><span>{completed[0] ? <Icon name="check" size={15}/> : "01"}</span><div><small>STEP 01</small><h3>변수 설정</h3></div><button onClick={() => checkSection(0)}>{completed[0] ? "다시 검사" : "STEP 검사"}</button></header>
+        <div className={styles.codeLine}><span>1</span><code>BLACK_VALUE = </code>{input("1.black_value", "검정 반사광", "0~100")}</div>
+        <div className={styles.codeLine}><span>2</span><code>WHITE_VALUE = </code>{input("1.white_value", "흰색 반사광", "검정보다 큰 값")}</div>
+        <div className={styles.codeLine}><span>3</span><code>BASE_SPEED = </code>{input("1.base_speed", "기본 속도", "1~100")}</div>
+        <div className={styles.codeLine}><span>4</span><code>TARGET = </code>{input("1.target", "센서 기준값", "두 반사광의 평균식", true)}</div>
+        <div className={styles.codeLine}><span>5</span><code>KP = </code>{input("1.kp", "P 계수", "0보다 크고 3 이하")}</div>
+        <div className={styles.codeLine}><span>6</span><code>KD = </code>{input("1.kd", "D 계수", "0~2")}</div>
         {(sectionIssues[0]?.length ?? 0) > 0 ? <div className={styles.sectionError} aria-live="polite">{sectionIssues[0].map((issue) => <p key={issue}>{issue}</p>)}</div> : null}
       </section>
 
       <section ref={(node) => { sectionRefs.current[1] = node; }} className={`${styles.codeSection} ${completed[1] ? styles.sectionComplete : ""}`} data-qa="code-section-2">
-        <header><span>{completed[1] ? <Icon name="check" size={15}/> : "02"}</span><div><small>STEP 02</small><h3>변수 설정</h3></div><button onClick={() => checkSection(1)}>{completed[1] ? "다시 검사" : "STEP 검사"}</button></header>
-        <div className={styles.codeLine}><span>6</span><code>BLACK_VALUE = </code>{input("1.black_value", "검정 반사광", "0~100")}</div>
-        <div className={styles.codeLine}><span>7</span><code>WHITE_VALUE = </code>{input("1.white_value", "흰색 반사광", "검정보다 큰 값")}</div>
-        <div className={styles.codeLine}><span>8</span><code>BASE_SPEED = </code>{input("1.base_speed", "기본 속도", "1~100")}</div>
-        <div className={styles.codeLine}><span>9</span><code>TARGET = </code>{input("1.target", "센서 기준값", "두 반사광의 평균식", true)}</div>
-        <div className={styles.codeLine}><span>10</span><code>KP = </code>{input("1.kp", "P 계수", "0보다 크고 3 이하")}</div>
-        <div className={styles.codeLine}><span>11</span><code>KD = </code>{input("1.kd", "D 계수", "0~2")}</div>
+        <header><span>{completed[1] ? <Icon name="check" size={15}/> : "02"}</span><div><small>STEP 02</small><h3>함수 구조</h3></div><button onClick={() => checkSection(1)}>{completed[1] ? "다시 검사" : "STEP 검사"}</button></header>
+        <div className={styles.codeLine}><span>8</span><code>def line_follow(</code>{input("2.params", "매개변수 네 개", "base_speed, target, kp, kd", true)}<code>):</code></div>
+        <div className={`${styles.codeLine} ${styles.indentOne}`}><span>9</span><code>previous_error = </code>{input("2.previous_error", "이전 오차 초기값", "0")}</div>
+        <div className={`${styles.codeLine} ${styles.indentOne}`}><span>10</span><code>while </code>{input("2.loop", "반복 조건", "True")}<code>:</code></div>
         {(sectionIssues[1]?.length ?? 0) > 0 ? <div className={styles.sectionError} aria-live="polite">{sectionIssues[1].map((issue) => <p key={issue}>{issue}</p>)}</div> : null}
       </section>
 
       <section ref={(node) => { sectionRefs.current[2] = node; }} className={`${styles.codeSection} ${completed[2] ? styles.sectionComplete : ""}`} data-qa="code-section-3">
-        <header><span>{completed[2] ? <Icon name="check" size={15}/> : "03"}</span><div><small>STEP 03</small><h3>함수 구조</h3></div><button onClick={() => checkSection(2)}>{completed[2] ? "다시 검사" : "STEP 검사"}</button></header>
-        <div className={styles.codeLine}><span>13</span><code>def line_follow(</code>{input("2.params", "매개변수 네 개", "base_speed, target, kp, kd", true)}<code>):</code></div>
-        <div className={`${styles.codeLine} ${styles.indentOne}`}><span>14</span><code>previous_error = </code>{input("2.previous_error", "이전 오차 초기값", "0")}</div>
-        <div className={`${styles.codeLine} ${styles.indentOne}`}><span>15</span><code>while </code>{input("2.loop", "반복 조건", "True")}<code>:</code></div>
+        <header><span>{completed[2] ? <Icon name="check" size={15}/> : "03"}</span><div><small>STEP 03</small><h3>센서 + P 제어</h3></div><button onClick={() => checkSection(2)}>{completed[2] ? "다시 검사" : "STEP 검사"}</button></header>
+        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>11</span><code>sensor_value = </code>{input("2.sensor", "센서 읽기", "color_sensor.reflection()", true)}</div>
+        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>12</span><code>error = </code>{input("3.error", "오차 계산", "기준값 - 현재값", true)}</div>
+        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>13</span><code>p_control = </code>{input("3.p_control", "P 제어", "P 계수 × 현재 오차", true)}</div>
         {(sectionIssues[2]?.length ?? 0) > 0 ? <div className={styles.sectionError} aria-live="polite">{sectionIssues[2].map((issue) => <p key={issue}>{issue}</p>)}</div> : null}
       </section>
 
       <section ref={(node) => { sectionRefs.current[3] = node; }} className={`${styles.codeSection} ${completed[3] ? styles.sectionComplete : ""}`} data-qa="code-section-4">
-        <header><span>{completed[3] ? <Icon name="check" size={15}/> : "04"}</span><div><small>STEP 04</small><h3>센서 + P 제어</h3></div><button onClick={() => checkSection(3)}>{completed[3] ? "다시 검사" : "STEP 검사"}</button></header>
-        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>16</span><code>sensor_value = </code>{input("2.sensor", "센서 읽기", "color_sensor.reflection()", true)}</div>
-        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>17</span><code>error = </code>{input("3.error", "오차 계산", "기준값 - 현재값", true)}</div>
-        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>18</span><code>p_control = </code>{input("3.p_control", "P 제어", "P 계수 × 현재 오차", true)}</div>
+        <header><span>{completed[3] ? <Icon name="check" size={15}/> : "04"}</span><div><small>STEP 04</small><h3>D 제어</h3></div><button onClick={() => checkSection(3)}>{completed[3] ? "다시 검사" : "STEP 검사"}</button></header>
+        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>14</span><code>change = </code>{input("4.change", "변화량", "현재 오차 - 이전 오차", true)}</div>
+        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>15</span><code>d_control = </code>{input("4.d_control", "D 제어", "D 계수 × 변화량", true)}</div>
         {(sectionIssues[3]?.length ?? 0) > 0 ? <div className={styles.sectionError} aria-live="polite">{sectionIssues[3].map((issue) => <p key={issue}>{issue}</p>)}</div> : null}
       </section>
 
       <section ref={(node) => { sectionRefs.current[4] = node; }} className={`${styles.codeSection} ${completed[4] ? styles.sectionComplete : ""}`} data-qa="code-section-5">
-        <header><span>{completed[4] ? <Icon name="check" size={15}/> : "05"}</span><div><small>STEP 05</small><h3>D 제어</h3></div><button onClick={() => checkSection(4)}>{completed[4] ? "다시 검사" : "STEP 검사"}</button></header>
-        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>19</span><code>change = </code>{input("4.change", "변화량", "현재 오차 - 이전 오차", true)}</div>
-        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>20</span><code>d_control = </code>{input("4.d_control", "D 제어", "D 계수 × 변화량", true)}</div>
+        <header><span>{completed[4] ? <Icon name="check" size={15}/> : "05"}</span><div><small>STEP 05</small><h3>모터 제어</h3></div><button onClick={() => checkSection(4)}>{completed[4] ? "다시 검사" : "STEP 검사"}</button></header>
+        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>16</span><code>correction = </code>{input("5.correction", "PD 결합", "P 반응 + D 반응", true)}</div>
+        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>17</span><code>left_power = </code>{input("5.left_power", "왼쪽 출력", "기본 속도 + 보정값", true)}</div>
+        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>18</span><code>right_power = </code>{input("5.right_power", "오른쪽 출력", "기본 속도 - 보정값", true)}</div>
+        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>19</span><code>previous_error = </code>{input("5.previous_error", "이전 오차 저장", "이번 반복의 현재 오차", true)}</div>
+        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>20</span><code>left_motor.dc(</code>{input("5.left_motor", "왼쪽 모터 출력", "left_power", true)}<code>)</code></div>
+        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>21</span><code>right_motor.dc(</code>{input("5.right_motor", "오른쪽 모터 출력", "right_power", true)}<code>)</code></div>
+        <div className={styles.lockedLine}><span>23</span><code>line_follow(BASE_SPEED, TARGET, KP, KD)</code><em>주어짐</em></div>
         {(sectionIssues[4]?.length ?? 0) > 0 ? <div className={styles.sectionError} aria-live="polite">{sectionIssues[4].map((issue) => <p key={issue}>{issue}</p>)}</div> : null}
-      </section>
-
-      <section ref={(node) => { sectionRefs.current[5] = node; }} className={`${styles.codeSection} ${completed[5] ? styles.sectionComplete : ""}`} data-qa="code-section-6">
-        <header><span>{completed[5] ? <Icon name="check" size={15}/> : "06"}</span><div><small>STEP 06</small><h3>모터 제어</h3></div><button onClick={() => checkSection(5)}>{completed[5] ? "다시 검사" : "STEP 검사"}</button></header>
-        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>21</span><code>correction = </code>{input("5.correction", "PD 결합", "P 반응 + D 반응", true)}</div>
-        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>22</span><code>left_power = </code>{input("5.left_power", "왼쪽 출력", "기본 속도 + 보정값", true)}</div>
-        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>23</span><code>right_power = </code>{input("5.right_power", "오른쪽 출력", "기본 속도 - 보정값", true)}</div>
-        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>24</span><code>previous_error = </code>{input("5.previous_error", "이전 오차 저장", "이번 반복의 현재 오차", true)}</div>
-        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>25</span><code>left_motor.dc(</code>{input("5.left_motor", "왼쪽 모터 출력", "left_power", true)}<code>)</code></div>
-        <div className={`${styles.codeLine} ${styles.indentTwo}`}><span>26</span><code>right_motor.dc(</code>{input("5.right_motor", "오른쪽 모터 출력", "right_power", true)}<code>)</code></div>
-        <div className={styles.lockedLine}><span>28</span><code>line_follow(BASE_SPEED, TARGET, KP, KD)</code><em>주어짐</em></div>
-        {(sectionIssues[5]?.length ?? 0) > 0 ? <div className={styles.sectionError} aria-live="polite">{sectionIssues[5].map((issue) => <p key={issue}>{issue}</p>)}</div> : null}
       </section>
     </section>
 
@@ -540,13 +530,13 @@ export default function PracticePage() {
     <section className={styles.practiceShell}>
       <header className={styles.hero}><div><small>LINE CORE ACADEMY · CLASS PRACTICE</small><h1>개념 문제와 전체 코드를<br/>원하는 방식으로 연습해요</h1><p>객관식 문제, 코드 완성, 설정이 포함된 함수 예제를 선택해 학습할 수 있습니다.</p></div><Image src="/assets/lumi-guide.webp" alt="학습 모드와 함수 예제를 안내하는 루미" width={800} height={800} priority unoptimized/></header>
       <nav className={styles.tabs} aria-label="학습 모드 선택" role="tablist">
-        <button role="tab" id="quiz-tab" aria-selected={tab === "quiz"} aria-controls="quiz-panel" className={tab === "quiz" ? styles.activeTab : ""} onClick={() => setTab("quiz")}><span><Icon name="book" size={19}/></span><b>객관식 문제</b><small>20문제 개념 점검</small></button>
+        <button role="tab" id="quiz-tab" aria-selected={tab === "quiz"} aria-controls="quiz-panel" className={tab === "quiz" ? styles.activeTab : ""} onClick={() => setTab("quiz")}><span><Icon name="book" size={19}/></span><b>객관식 문제</b><small>10문제 개념 점검</small></button>
         <button role="tab" id="code-tab" aria-selected={tab === "code"} aria-controls="code-panel" className={tab === "code" ? styles.activeTab : ""} onClick={() => setTab("code")}><span><Icon name="code" size={19}/></span><b>코드 완성</b><small>전체 함수 작성</small></button>
         <button role="tab" id="straight-tab" aria-selected={tab === "straight"} aria-controls="straight-panel" className={tab === "straight" ? styles.activeTab : ""} onClick={() => setTab("straight")}><span><Icon name="arrow" size={19}/></span><b>전진·후진 함수</b><small>gyro_straight</small></button>
         <button role="tab" id="line-tab" aria-selected={tab === "line"} aria-controls="line-panel" className={tab === "line" ? styles.activeTab : ""} onClick={() => setTab("line")}><span><Icon name="code" size={19}/></span><b>라인 함수</b><small>line_follow_pd</small></button>
         <button role="tab" id="turn-tab" aria-selected={tab === "turn"} aria-controls="turn-panel" className={tab === "turn" ? styles.activeTab : ""} onClick={() => setTab("turn")}><span><Icon name="refresh" size={19}/></span><b>회전 함수</b><small>gyro_turn</small></button>
       </nav>
-      <section id={`${tab}-panel`} role="tabpanel" aria-labelledby={`${tab}-tab`} className={styles.tabPanel}>{tab === "quiz" ? <QuizMode openGlossary={openGlossary}/> : tab === "code" ? <CodeMode openGlossary={openGlossary}/> : <FunctionReference kind={tab}/>}</section>
+      <section id={`${tab}-panel`} role="tabpanel" aria-labelledby={`${tab}-tab`} className={styles.tabPanel}>{tab === "quiz" ? <QuizMode openGlossary={openGlossary} onStartCode={() => setTab("code")}/> : tab === "code" ? <CodeMode openGlossary={openGlossary}/> : <FunctionReference kind={tab}/>}</section>
     </section>
   </main>{dictionaryOpen ? <ConceptDictionary index={dictionaryIndex} onSelect={setDictionaryIndex} onClose={() => setDictionaryOpen(false)}/> : null}</>;
 }

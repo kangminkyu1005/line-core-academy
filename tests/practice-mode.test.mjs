@@ -8,7 +8,7 @@ const downloadCode=await readFile(new URL("../public/downloads/base_code.py",imp
 const { functionReferences }=await import(new URL("../app/practice/function-snippets.js",import.meta.url));
 
 test("practice route reuses canonical learning content and code validation",()=>{
-  assert.match(page,/finalQuizQuestions/);
+  assert.match(page,/practiceQuizQuestions/);
   assert.match(page,/glossaryTopics/);
   assert.match(page,/codePracticeMissions/);
   assert.match(page,/validateCode/);
@@ -28,11 +28,52 @@ test("practice route exposes five accessible state-preserving tabs",()=>{
   assert.match(page,/saved === "turn"/);
 });
 
-test("continuous code editor contains all six inline validation sections",()=>{
-  for(let section=1;section<=6;section+=1)assert.match(page,new RegExp(`data-qa="code-section-${section}"`));
+test("continuous code editor starts with variables and contains five validation sections",()=>{
+  for(let section=1;section<=5;section+=1)assert.match(page,new RegExp(`data-qa="code-section-${section}"`));
+  assert.doesNotMatch(page,/data-qa="code-section-6"/);
+  assert.doesNotMatch(page,/처리 순서/);
+  assert.doesNotMatch(page,/0\.(sensor|error|direction|repeat)/);
+  assert.match(page,/ONE PROGRAM · FIVE STEPS/);
+  assert.match(page,/STEP 01<\/small><h3>변수 설정/);
+  assert.match(page,/STEP 05<\/small><h3>모터 제어/);
   assert.match(page,/data-qa="full-validation"/);
   assert.match(page,/data-qa="completed-code"/);
   assert.match(page,/aria-invalid/);
+});
+
+test("practice quiz exposes the ten requested concepts in teaching order",async()=>{
+  const learning=await readFile(new URL("../app/learning-content.ts",import.meta.url),"utf8");
+  const quiz=learning.slice(learning.indexOf("export const practiceQuizQuestions"),learning.indexOf("export const finalQuizQuestions"));
+  const entries=[...quiz.matchAll(/\{category:"([^"]+)",question:"([^"]+)",options:\[(.*?)\],answer:(\d),explanation:"([^"]+)",glossaryId:"([^"]+)"\}/g)];
+  assert.equal(entries.length,10);
+  for(const entry of entries){
+    const options=JSON.parse(`[${entry[3]}]`);
+    const answer=Number(entry[4]);
+    assert.equal(options.length,4,`${entry[2]} must have four choices`);
+    assert.ok(answer>=0&&answer<4,`${entry[2]} must have a valid answer`);
+  }
+  const concepts=[
+    "P 보정값을 계산",
+    "D 보정값을 구하는",
+    "최종 보정값",
+    "Kp 값을 지나치게 크게",
+    "Kd 값을 지나치게 크게",
+    "검은색과 흰색이 만나는 경계",
+    "경계를 판단하는 기준값",
+    "코드를 함수로 만드는",
+    "line_follow라는 함수를 정의",
+    "올바른 반복문",
+  ];
+  let cursor=-1;
+  for(const concept of concepts){
+    const next=quiz.indexOf(concept);
+    assert.ok(next>cursor,`${concept} must appear in order`);
+    cursor=next;
+  }
+  assert.match(page,/10 QUESTIONS · CONCEPT CHECK/);
+  assert.match(page,/10문제 개념 점검/);
+  assert.match(page,/코드 학습으로 이동/);
+  assert.match(page,/const compatible = Array\.isArray\(parsed\.answers\)/);
 });
 
 test("practice header keeps logo navigation inside practice",()=>{

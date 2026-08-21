@@ -134,6 +134,19 @@ export const glossaryTopics: GlossaryTopic[] = [
   },
 ];
 
+export const practiceQuizQuestions: FinalQuizQuestion[] = [
+  {category:"PD 제어",question:"현재 오차를 error, P 제어의 세기를 Kp라고 할 때 P 보정값을 계산하는 올바른 코드는 무엇일까요?",options:["P = Kp + error","P = Kp * error","P = error - Kp","P = Kp / error"],answer:1,explanation:"P 제어는 현재 오차에 비례해 보정합니다. 따라서 Kp와 error를 곱하며, 오차가 클수록 P 보정값도 커집니다.",glossaryId:"p-control"},
+  {category:"PD 제어",question:"현재 오차가 error, 이전 오차가 pre_error일 때 D 보정값을 구하는 올바른 코드는 무엇일까요?",options:["D = Kd * pre_error","D = Kd * (error + pre_error)","D = Kd * (error - pre_error)","D = error - Kd"],answer:2,explanation:"D 제어는 이전 오차 자체가 아니라 현재 error와 이전 pre_error의 차이, 즉 오차의 변화량에 Kd를 곱합니다.",glossaryId:"d-control"},
+  {category:"PD 제어",question:"P와 D를 계산한 다음 최종 보정값을 만드는 올바른 코드는 무엇일까요?",options:["correction = P - D","correction = P + D","correction = P * D","correction = Kp + Kd"],answer:1,explanation:"P와 D의 결과를 더한 correction을 이용해 좌우 모터의 속도를 서로 다르게 조절합니다.",glossaryId:"correction"},
+  {category:"PD 제어",question:"Kp 값을 지나치게 크게 설정하면 어떤 현상이 나타날 가능성이 높을까요?",options:["작은 오차에도 크게 반응해 좌우로 심하게 흔들리거나 지그재그로 움직인다","컬러 센서가 영구적으로 고장 난다","두 모터의 회전 방향이 자동으로 바뀐다","검정과 흰색의 센서값이 항상 같아진다"],answer:0,explanation:"Kp가 너무 크면 작은 오차에도 P 보정이 지나치게 커져 경계를 계속 지나칠 수 있습니다. 그 결과 로봇이 좌우로 심하게 흔들리거나 지그재그로 움직입니다.",glossaryId:"p-control"},
+  {category:"PD 제어",question:"Kd 값을 지나치게 크게 설정하면 어떤 현상이 나타날 수 있을까요?",options:["기본 속도가 항상 0이 된다","작은 오차 변화에도 과도하게 반응해 움직임이 떨리거나 불안정해진다","센서가 검은색만 감지한다","함수 이름이 자동으로 바뀐다"],answer:1,explanation:"적절한 Kd는 흔들림을 줄이는 데 도움을 주지만, 너무 크면 작은 오차 변화에도 과도하게 반응해 움직임이 떨리거나 불안정해질 수 있습니다.",glossaryId:"d-control"},
+  {category:"센서와 기준",question:"한 개의 컬러 센서로 검은색 라인을 따라갈 때 센서가 주로 따라가야 하는 위치는 어디일까요?",options:["검은색 라인의 정확한 중앙","흰색 바닥의 중앙","검은색과 흰색이 만나는 경계 부분","로봇의 두 바퀴 사이"],answer:2,explanation:"한 개의 센서는 라인 중앙이 아니라 검은색과 흰색이 만나는 경계의 밝기값을 기준으로 움직입니다.",glossaryId:"line-following"},
+  {category:"센서와 기준",question:"검은색 센서값이 20, 흰색 센서값이 80일 때 경계를 판단하는 기준값은 얼마일까요?",options:["20","40","50","80"],answer:2,explanation:"기준값은 두 센서값의 중간값을 사용합니다. (20 + 80) / 2 = 50이며, 숫자 50을 외우는 것이 아니라 두 측정값의 평균을 구하는 원리가 중요합니다.",glossaryId:"target"},
+  {category:"파이썬 문법",question:"전진, 회전, 라인 팔로잉처럼 반복해서 사용하는 코드를 함수로 만드는 가장 중요한 이유는 무엇일까요?",options:["반복되는 코드를 하나로 정리하고 필요할 때 다시 사용하기 위해","모든 센서값을 같은 숫자로 만들기 위해","코드를 실행하지 못하게 막기 위해","모터의 방향을 자동으로 바꾸기 위해"],answer:0,explanation:"함수로 묶으면 같은 코드를 계속 작성하지 않고 필요할 때 다시 사용할 수 있으며, 나중에 수정할 때도 한 곳에서 관리하기 쉽습니다.",glossaryId:"function"},
+  {category:"파이썬 문법",question:"Python에서 line_follow라는 함수를 정의하는 올바른 방법은 무엇일까요?",options:["function line_follow():","def line_follow():","line_follow def:","def = line_follow()"],answer:1,explanation:"Python에서는 def 뒤에 함수 이름과 괄호를 쓰고 마지막에 콜론(:)을 붙여 함수를 정의합니다.",glossaryId:"function"},
+  {category:"파이썬 문법",question:"로봇이 계속 센서값을 확인하며 라인을 따라가도록 만드는 올바른 반복문은 무엇일까요?",options:["while False:","repeat True:","while = True:","while True:"],answer:3,explanation:"while True:는 조건이 항상 참이므로 내부에 들여쓴 센서 확인과 보정 코드가 계속 반복됩니다.",glossaryId:"loop"},
+];
+
 export const finalQuizQuestions: FinalQuizQuestion[] = [
   {category:"파이썬 문법",question:"라인 팔로잉의 여러 숫자를 변수로 선언하는 가장 큰 이유는 무엇일까요?",options:["센서가 변수 이름을 직접 읽기 때문에","숫자의 역할을 알기 쉽고 한 곳에서 조절할 수 있어서","변수를 쓰면 들여쓰기가 필요 없어서","모든 숫자를 자동으로 같은 값으로 만들기 위해"],answer:1,explanation:"의미 있는 변수 이름을 쓰면 숫자의 역할이 보이고, 로봇이나 바닥이 달라질 때 필요한 값만 수정할 수 있습니다.",glossaryId:"variable"},
   {category:"파이썬 문법",question:"함수 밖에서 기본 속도 60을 설정하는 올바른 문장은 무엇일까요?",options:["60 = BASE_SPEED","BASE_SPEED == 60","BASE_SPEED = 60","set BASE_SPEED 60"],answer:2,explanation:"이번 프로그램은 함수 밖의 전역 설정값을 대문자로 써서 함수 안의 소문자 매개변수와 구분합니다.",glossaryId:"variable"},
