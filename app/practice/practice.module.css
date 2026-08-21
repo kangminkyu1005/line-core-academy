@@ -37,3 +37,7 @@
 .copyStatus[data-state=error]{color:#a73a33}
 @media(max-width:768px){.tabs{overflow-x:auto;grid-template-columns:repeat(5,150px);scroll-snap-type:x proximity;overscroll-behavior-inline:contain}.tabs button{scroll-snap-align:start}.functionReference{padding:20px;border-radius:20px}.functionHeading h2{font-size:23px}.referenceCode{font-size:12px}}
 @media(max-width:560px){.tabs{grid-template-columns:repeat(5,138px)}.tabs button{min-height:66px}.functionReference{padding:14px;border-radius:16px}.functionHeading{display:block;margin-bottom:14px}.functionHeading h2{font-size:21px}.functionHeading p{font-size:12px}.copyButton{width:100%;margin-top:14px}.setupNotice{padding:12px}.setupNotice p{font-size:11px}.readOnlyLabel{padding:8px 11px;display:block;line-height:1.5}.readOnlyLabel span{display:block}.readOnlyLabel span:last-child{text-align:left}.referenceCode{max-height:560px;padding:15px;font-size:11px}.copyStatus{font-size:11px}}
+.quizResultActions{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.codeProgress nav{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:1024px){.codeProgress nav{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:560px){.quizResultActions{display:grid;grid-template-columns:1fr}.quizResultActions .primaryButton{width:100%}.codeProgress nav{grid-template-columns:repeat(2,minmax(0,1fr))}}
