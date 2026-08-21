@@ -1,5 +1,3 @@
-const ENTRY_PROMPT = " (아래의 코드 입력)";
-
 export function expressionValue(expression, variables) {
   const numberPattern = "(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+\\-]?\\d+)?";
   const tokens = expression.match(new RegExp(numberPattern+"|[A-Za-z_]\\w*|\\*\\*|//|[()+\\-*/%]","g"));
@@ -77,35 +75,10 @@ function diagnoseExpression(code,name,label,samples,attempt,targeted){
   return attempt>1?label+": "+targeted:label+": 사용한 연산자와 값의 순서를 다시 생각해 보세요.";
 }
 
-function commentHasLabel(comment,label){
-  const clean=comment.replace(" (아래 줄에 코드 입력)","").replace(ENTRY_PROMPT,"").trim();
-  if(clean===label||clean.startsWith(label+" ")||clean.startsWith(label+":")||clean.startsWith(label+"：")||clean.startsWith(label+" -")||clean.startsWith(label+" ("))return true;
-  const normalized=clean.replace(/[\s·.,!?→\-_/]/g,"").toLowerCase();
-  if(label==="센서 확인")return (normalized.includes("센서")||normalized.includes("반사광"))&&["확인","읽","측정"].some((token)=>normalized.includes(token));
-  if(label==="오차 계산")return (normalized.includes("오차")||normalized.includes("차이"))&&["계산","구","확인"].some((token)=>normalized.includes(token));
-  if(label==="방향 보정")return (normalized.includes("방향")||normalized.includes("모터"))&&["보정","조절","수정","제어"].some((token)=>normalized.includes(token));
-  if(label==="반복")return normalized.includes("반복")||(normalized.includes("다시")&&["수행","처리","실행"].some((token)=>normalized.includes(token)));
-  return false;
-}
-
 export function validateCode(id,code,attempt=1){
   const executable=code.split("\n").filter((line)=>!line.trimStart().startsWith("#")).join("\n");
   const compact=executable.replace(/\s+/g,"");
   const has=(snippet)=>compact.includes(snippet.replace(/\s+/g,""));
-  if(id===0){
-    const expected=["센서 확인","오차 계산","방향 보정","반복"];
-    const comments=code.split("\n").map((line)=>line.match(/^\s*#\s*(.+?)\s*$/)?.[1]??"").filter(Boolean);
-    let commentCursor=-1;
-    const inOrder=expected.every((label)=>{
-      const next=comments.findIndex((comment,index)=>index>commentCursor&&commentHasLabel(comment,label));
-      if(next<0)return false;
-      commentCursor=next;
-      return true;
-    });
-    const missing=inOrder?[]:[attempt>1?"미션 키워드의 # 센서 확인 → # 오차 계산 → # 방향 보정 → # 반복을 같은 순서로 작성해 보세요.":"미션 키워드에 제시된 네 역할 주석을 순서대로 작성해 보세요."];
-    return {passed:missing.length===0,missing};
-  }
-
   if(id===1){
     const value=(name,variables={})=>{
       const expression=assignmentExpression(executable,name);
